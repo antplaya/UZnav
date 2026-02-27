@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>UZnav</title>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="app-title">UZnav</h1>
+        <div class="gps-indicator">
+          <span id="gps-status" class="gps-status">GPS...</span>
+          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-container">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search city or address..."
+          autocomplete="off"
+          enterkeyhint="search"
+        />
+        <button id="search-btn" class="btn-primary" aria-label="Search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Search Results -->
+      <ul id="search-results" class="search-results hidden"></ul>
+
+      <!-- Map Layers -->
+      <div class="layers-section">
+        <label class="toggle-label">
+          <input type="checkbox" id="traffic-toggle" />
+          <span class="toggle-switch"></span>
+          <span>Traffic</span>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="radars-toggle" checked />
+          <span class="toggle-switch"></span>
+          <span>Speed cameras</span>
+        </label>
+      </div>
+
+      <!-- Waypoints -->
+      <div class="waypoints-section">
+        <div class="section-header">
+          <h2 class="section-title">Route</h2>
+          <button id="clear-route-btn" class="btn-danger-sm">Clear</button>
+        </div>
+        <ul id="waypoints-list" class="waypoints-list"></ul>
+        <p class="hint-text">Tap the map to add waypoints</p>
+      </div>
+
+      <!-- Route Summary -->
+      <div id="route-summary" class="route-summary hidden">
+        <div class="summary-stats">
+          <div class="stat">
+            <span class="stat-label">Distance</span>
+            <span id="total-distance" class="stat-value">--</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Est. Time</span>
+            <span id="total-time" class="stat-value">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Directions -->
+      <div id="directions-container" class="directions-container hidden">
+        <h2 class="section-title">Directions</h2>
+        <ol id="directions-list" class="directions-list"></ol>
+      </div>
+
+      <!-- Attribution -->
+      <div class="attribution">
+        &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors
+      </div>
+    </aside>
+
+    <!-- Sidebar Toggle -->
+    <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Locate / Follow GPS Button -->
+    <button id="locate-btn" class="locate-btn" aria-label="Center on GPS">
+      <svg class="locate-icon-default" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      </svg>
+      <svg class="locate-icon-heading" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/>
+      </svg>
+    </button>
+
+    <!-- Speed Display -->
+    <div id="speed-display" class="speed-display hidden">
+      <span id="speed-value" class="speed-value">0</span>
+      <span class="speed-unit">km/h</span>
+    </div>
+  </div>
+
+  <!-- Mock GPS for local testing: add ?mock-gps to URL -->
+  <script>
+  if (location.search.includes('mock-gps')) {
+    (function() {
+      var lat = 41.3110, lng = 69.2795, heading = 30, speed = 16.67;
+      var cbs = [];
+      function pos() {
+        return { coords: { latitude: lat, longitude: lng, speed: speed, heading: heading, accuracy: 5, altitude: null, altitudeAccuracy: null }, timestamp: Date.now() };
+      }
+      navigator.geolocation.getCurrentPosition = function(s) { setTimeout(function(){ s(pos()); }, 500); };
+      navigator.geolocation.watchPosition = function(s) {
+        cbs.push(s);
+        setTimeout(function(){ s(pos()); }, 600);
+        return 999;
+      };
+      navigator.geolocation.clearWatch = function() {};
+      setInterval(function() {
+        lat += 0.00015;
+        lng += 0.00020;
+        heading = (heading + 3) % 360;
+        speed = 14 + Math.random() * 6;
+        var p = pos();
+        cbs.forEach(function(cb) { cb(p); });
+      }, 2000);
+      console.log('Mock GPS active: Tashkent, ~60 km/h');
+    })();
+  }
+  </script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
