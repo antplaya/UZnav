@@ -94,26 +94,35 @@ function addCityMarkers() {
 }
 
 /**
- * Add building housenumber labels from OpenMapTiles vector data.
+ * Add building housenumber labels from VersaTiles (Shortbread schema "addresses" layer).
+ * OpenFreeMap tiles don't include housenumber data, so we overlay VersaTiles as a second source.
  */
 function addHousenumberLayer() {
   if (map.getLayer('housenumber')) return;
 
+  if (!map.getSource('versatiles')) {
+    map.addSource('versatiles', {
+      type: 'vector',
+      tiles: ['https://tiles.versatiles.org/tiles/osm/{z}/{x}/{y}'],
+      maxzoom: 14,
+    });
+  }
+
   map.addLayer({
     id: 'housenumber',
     type: 'symbol',
-    source: 'openmaptiles',
-    'source-layer': 'housenumber',
+    source: 'versatiles',
+    'source-layer': 'addresses',
     minzoom: 17,
     layout: {
       'text-field': '{housenumber}',
       'text-font': ['Noto Sans Regular'],
-      'text-size': 11,
+      'text-size': 13,
     },
     paint: {
       'text-color': currentTheme === 'dark' ? '#aaa' : '#555',
       'text-halo-color': currentTheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
-      'text-halo-width': 1,
+      'text-halo-width': 1.5,
     },
   });
 }
