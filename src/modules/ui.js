@@ -195,6 +195,142 @@ export function setLocateButtonState(mode) {
   if (mode === 'follow-heading') btn.classList.add('active', 'heading');
 }
 
+// ===== NAVIGATION HUD =====
+
+export function showNavHud() {
+  const hud = document.getElementById('nav-hud');
+  if (hud) hud.classList.remove('hidden');
+  // Hide standalone speed display when HUD is active
+  const sd = document.getElementById('speed-display');
+  if (sd) sd.classList.add('hidden');
+}
+
+export function hideNavHud() {
+  const hud = document.getElementById('nav-hud');
+  if (hud) hud.classList.add('hidden');
+}
+
+/**
+ * Update all navigation HUD elements.
+ */
+export function updateNavHud({ distanceToTurn, instruction, maneuverType, maneuverModifier, eta, remaining, speed, speedLimit }) {
+  const distEl = document.getElementById('nav-distance-to-turn');
+  const instrEl = document.getElementById('nav-instruction');
+  const iconEl = document.getElementById('nav-maneuver-icon');
+  const etaEl = document.getElementById('nav-eta');
+  const remEl = document.getElementById('nav-remaining');
+  const spdEl = document.getElementById('nav-speed');
+  const limContainer = document.getElementById('nav-speed-limit-container');
+  const limEl = document.getElementById('nav-speed-limit');
+
+  if (distEl) distEl.textContent = formatDistance(distanceToTurn);
+  if (instrEl) instrEl.textContent = instruction || '';
+  if (iconEl) iconEl.innerHTML = getManeuverSvg(maneuverType, maneuverModifier);
+
+  if (etaEl && eta) {
+    const h = eta.getHours().toString().padStart(2, '0');
+    const m = eta.getMinutes().toString().padStart(2, '0');
+    etaEl.textContent = `${h}:${m}`;
+  }
+
+  if (remEl) remEl.textContent = formatDistance(remaining);
+  if (spdEl) spdEl.textContent = speed !== null ? Math.round(speed) : '0';
+
+  // Speed limit
+  if (limContainer && limEl) {
+    if (speedLimit && speedLimit > 0) {
+      limContainer.classList.remove('hidden');
+      limEl.textContent = speedLimit;
+      // Speeding state
+      const spdStat = spdEl?.closest('.nav-stat');
+      if (speed > speedLimit) {
+        limContainer.classList.add('speeding');
+        if (spdStat) spdStat.classList.add('speeding');
+      } else {
+        limContainer.classList.remove('speeding');
+        if (spdStat) spdStat.classList.remove('speeding');
+      }
+    } else {
+      limContainer.classList.add('hidden');
+      limContainer.classList.remove('speeding');
+      const spdStat = spdEl?.closest('.nav-stat');
+      if (spdStat) spdStat.classList.remove('speeding');
+    }
+  }
+}
+
+/**
+ * Get SVG icon for a maneuver type + modifier.
+ */
+function getManeuverSvg(type, modifier) {
+  const color = '#fff';
+  const sw = '2.5';
+
+  // Arrow pointing up (straight)
+  const straight = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="35" x2="20" y2="8"/><polyline points="12,16 20,8 28,16"/></svg>`;
+
+  // Turn right
+  const turnRight = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><path d="M15 35 L15 18 Q15 12 21 12 L32 12"/><polyline points="26,6 32,12 26,18"/></svg>`;
+
+  // Turn left
+  const turnLeft = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><path d="M25 35 L25 18 Q25 12 19 12 L8 12"/><polyline points="14,6 8,12 14,18"/></svg>`;
+
+  // Sharp right
+  const sharpRight = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="15" y1="8" x2="15" y2="22"/><line x1="15" y1="22" x2="30" y2="35"/><polyline points="30,28 30,35 23,35"/></svg>`;
+
+  // Sharp left
+  const sharpLeft = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="25" y1="8" x2="25" y2="22"/><line x1="25" y1="22" x2="10" y2="35"/><polyline points="10,28 10,35 17,35"/></svg>`;
+
+  // Slight right
+  const slightRight = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="35" x2="16" y2="20"/><line x1="16" y1="20" x2="28" y2="8"/><polyline points="22,8 28,8 28,14"/></svg>`;
+
+  // Slight left
+  const slightLeft = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="24" y1="35" x2="24" y2="20"/><line x1="24" y1="20" x2="12" y2="8"/><polyline points="18,8 12,8 12,14"/></svg>`;
+
+  // U-turn
+  const uturn = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><path d="M14 35 L14 16 Q14 8 22 8 Q30 8 30 16 L30 35"/><polyline points="8,28 14,35 20,28"/></svg>`;
+
+  // Roundabout
+  const roundabout = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="18" r="8"/><line x1="20" y1="26" x2="20" y2="36"/><polyline points="14,12 20,10 26,12"/></svg>`;
+
+  // Arrive (flag)
+  const arrive = `<svg viewBox="0 0 40 40" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="35"/><path d="M12 8 L30 14 L12 20" fill="rgba(255,255,255,0.3)"/></svg>`;
+
+  const mod = (modifier || '').toLowerCase();
+
+  switch (type) {
+    case 'depart':
+    case 'continue':
+    case 'new name':
+      return straight;
+    case 'arrive':
+      return arrive;
+    case 'turn':
+    case 'end of road':
+      if (mod.includes('sharp') && mod.includes('right')) return sharpRight;
+      if (mod.includes('sharp') && mod.includes('left')) return sharpLeft;
+      if (mod.includes('slight') && mod.includes('right')) return slightRight;
+      if (mod.includes('slight') && mod.includes('left')) return slightLeft;
+      if (mod.includes('right')) return turnRight;
+      if (mod.includes('left')) return turnLeft;
+      if (mod.includes('uturn') || mod.includes('u-turn')) return uturn;
+      return straight;
+    case 'merge':
+    case 'on ramp':
+    case 'off ramp':
+    case 'fork':
+      if (mod.includes('right')) return slightRight;
+      if (mod.includes('left')) return slightLeft;
+      return straight;
+    case 'roundabout':
+    case 'rotary':
+    case 'roundabout turn':
+      return roundabout;
+    default:
+      return straight;
+  }
+}
+
 export function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;

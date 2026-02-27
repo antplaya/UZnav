@@ -9,6 +9,7 @@ import { initRouting, addWaypoint, removeWaypointByIndex, clearRoute } from './m
 import { searchLocation, reverseGeocode } from './modules/search.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
+import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive } from './modules/navigation.js';
 import {
   initUI,
   setupSidebarToggle,
@@ -24,6 +25,9 @@ import {
   showToast,
   updateSpeedDisplay,
   setLocateButtonState,
+  showNavHud,
+  hideNavHud,
+  updateNavHud,
 } from './modules/ui.js';
 
 // --- State ---
@@ -33,6 +37,8 @@ let currentTheme = localStorage.getItem('uznav-theme') || 'dark';
 let cameras = [];
 let lastCameraAlertTime = 0;
 let gpsAvailable = false;
+let lastRoute = null;
+let lastSpeedKmh = 0;
 
 // --- Init ---
 initUI();
@@ -95,9 +101,11 @@ radarsToggle.addEventListener('change', () => {
 
 // Clear route button
 document.getElementById('clear-route-btn').addEventListener('click', () => {
+  if (isNavActive()) exitNavigation();
   clearRoute();
   waypointNames.clear();
   currentWaypoints = [];
+  lastRoute = null;
   renderWaypoints([], () => {});
   hideRouteSummary();
   hideDirections();
@@ -129,6 +137,65 @@ locateBtn.addEventListener('click', () => {
 onFollowChange((mode) => {
   setLocateButtonState(mode);
 });
+
+// --- Navigation ---
+
+// Start navigation button
+document.getElementById('start-nav-btn').addEventListener('click', () => {
+  if (!lastRoute) {
+    showToast('Build a route first', 'info');
+    return;
+  }
+  if (!gpsAvailable) {
+    showToast('GPS not available', 'info');
+    return;
+  }
+
+  startNavigation(lastRoute);
+
+  // Enter driving mode
+  const sidebar = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  sidebar.classList.add('collapsed');
+  sidebarToggle.classList.add('collapsed');
+
+  setFollowMode('follow-heading');
+  setLocateButtonState('follow-heading');
+  showNavHud();
+});
+
+// Exit navigation button
+document.getElementById('nav-exit-btn').addEventListener('click', () => {
+  exitNavigation();
+});
+
+function exitNavigation() {
+  stopNavigation();
+  hideNavHud();
+  setFollowMode('off');
+  setLocateButtonState('off');
+
+  // Show sidebar
+  const sidebar = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  sidebar.classList.remove('collapsed');
+  sidebarToggle.classList.remove('collapsed');
+
+  // Re-show standalone speed display if GPS active
+  const sd = document.getElementById('speed-display');
+  if (sd && gpsAvailable) sd.classList.remove('hidden');
+}
+
+/**
+ * Find nearest speed camera within radius and return its maxspeed as a number.
+ */
+function findNearbySpeedLimit(lat, lng) {
+  if (cameras.length === 0 || !radarsToggle.checked) return null;
+  const nearby = checkCameraProximity(lat, lng, cameras, 500);
+  if (!nearby || !nearby.maxspeed) return null;
+  const limit = parseInt(nearby.maxspeed, 10);
+  return isNaN(limit) ? null : limit;
+}
 
 // Init map, then routing, GPS, and layers
 initMap().then((map) => {
@@ -203,6 +270,7 @@ async function handleSearch(query) {
 }
 
 function handleRouteFound(route) {
+  lastRoute = route;
   showRouteSummary(route.distance, route.duration);
   if (route.steps && route.steps.length > 0) {
     renderDirections(route.steps);
@@ -237,6 +305,26 @@ function refreshWaypointList() {
   });
 }
 
+function formatManeuverShort(maneuver) {
+  const type = maneuver?.type || '';
+  const modifier = maneuver?.modifier || '';
+  const types = {
+    depart: 'Depart',
+    arrive: 'Arrive',
+    turn: `Turn ${modifier}`,
+    'new name': 'Continue',
+    merge: `Merge ${modifier}`,
+    'on ramp': `Ramp ${modifier}`,
+    'off ramp': `Exit ${modifier}`,
+    fork: `Fork ${modifier}`,
+    'end of road': `Turn ${modifier}`,
+    continue: 'Continue',
+    roundabout: `Roundabout`,
+    rotary: `Rotary`,
+  };
+  return types[type] || type || 'Continue';
+}
+
 async function initGps() {
   setGpsStatus('GPS...');
 
@@ -256,7 +344,38 @@ async function initGps() {
         const speedKmh = (newPos.speed !== null && newPos.speed >= 0)
           ? newPos.speed * 3.6
           : null;
-        updateSpeedDisplay(speedKmh);
+        lastSpeedKmh = speedKmh || 0;
+
+        // Navigation HUD update
+        if (isNavActive()) {
+          const navState = navUpdatePosition(newPos.lat, newPos.lng);
+          if (navState) {
+            const speedLimit = findNearbySpeedLimit(newPos.lat, newPos.lng);
+            const step = navState.nextStep || navState.currentStep;
+            const maneuver = step?.maneuver || {};
+            const instruction = step?.name
+              ? `${formatManeuverShort(maneuver)} on ${step.name}`
+              : formatManeuverShort(maneuver);
+
+            updateNavHud({
+              distanceToTurn: navState.distanceToNextManeuver,
+              instruction,
+              maneuverType: maneuver.type,
+              maneuverModifier: maneuver.modifier,
+              eta: navState.eta,
+              remaining: navState.remainingDistance,
+              speed: lastSpeedKmh,
+              speedLimit: speedLimit || null,
+            });
+
+            if (navState.arrived) {
+              showToast('You have arrived!', 'success');
+              exitNavigation();
+            }
+          }
+        } else {
+          updateSpeedDisplay(speedKmh);
+        }
 
         // Speed camera proximity alert
         if (cameras.length > 0 && radarsToggle.checked) {

@@ -47,6 +47,7 @@ export function initMap() {
 
     map.on('load', () => {
       addCityMarkers();
+      addHousenumberLayer();
       resolve(map);
     });
   });
@@ -89,6 +90,31 @@ function addCityMarkers() {
       .addTo(map);
 
     cityMarkers.push(marker);
+  });
+}
+
+/**
+ * Add building housenumber labels from OpenMapTiles vector data.
+ */
+function addHousenumberLayer() {
+  if (map.getLayer('housenumber')) return;
+
+  map.addLayer({
+    id: 'housenumber',
+    type: 'symbol',
+    source: 'openmaptiles',
+    'source-layer': 'housenumber',
+    minzoom: 17,
+    layout: {
+      'text-field': '{housenumber}',
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 11,
+    },
+    paint: {
+      'text-color': currentTheme === 'dark' ? '#aaa' : '#555',
+      'text-halo-color': currentTheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+      'text-halo-width': 1,
+    },
   });
 }
 
@@ -223,6 +249,7 @@ export function setMapTheme(theme, onReady) {
 
   map.once('style.load', () => {
     addCityMarkers();
+    addHousenumberLayer();
     if (hadTraffic) addTrafficLayer();
     if (onReady) onReady();
   });
