@@ -234,11 +234,14 @@ export function updateGpsPosition(lat, lng, heading, speed) {
     const bearing = (heading !== null && heading !== undefined && !isNaN(heading))
       ? heading
       : map.getBearing();
+    // Offset GPS dot to lower third of screen so more road ahead is visible (like Waze)
+    const screenH = map.getContainer().clientHeight;
     map.easeTo({
       center: [lng, lat],
       zoom: Math.max(map.getZoom(), 17),
       bearing,
       pitch: 50,
+      padding: { top: Math.round(screenH * 0.35), bottom: 0 },
       duration: 500,
     });
   }
