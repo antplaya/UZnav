@@ -251,13 +251,23 @@ function routeToDestination(result) {
   const destKey = coordKey(result.lng, result.lat);
   waypointNames.set(destKey, result.shortName);
 
-  if (gps && currentWaypoints.length === 0) {
-    // Auto-route from current GPS to destination
+  if (gps) {
+    // Clear any existing route and build fresh GPS → destination
+    clearRoute();
+    waypointNames.clear();
+    currentWaypoints = [];
+    lastRoute = null;
+    hideRouteSummary();
+    hideDirections();
+
+    waypointNames.set(destKey, result.shortName);
     const originKey = coordKey(gps.lng, gps.lat);
     reverseGeocode(gps.lat, gps.lng).then((name) => {
       waypointNames.set(originKey, name);
+      refreshWaypointList();
     }).catch(() => {
       waypointNames.set(originKey, 'My location');
+      refreshWaypointList();
     });
     setWaypoints([[gps.lng, gps.lat], [result.lng, result.lat]]);
   } else {
