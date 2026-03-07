@@ -150,11 +150,14 @@
     </div>
   </div>
 
-  <!-- Mock GPS for local testing: add ?mock-gps to URL -->
+  <!-- Mock GPS for local testing: ?mock-gps (Tashkent) or ?mock-gps-us (San Francisco) -->
   <script>
   if (location.search.includes('mock-gps')) {
     (function() {
-      var lat = 41.3110, lng = 69.2795, heading = 30, speed = 16.67;
+      var isUS = location.search.includes('mock-gps-us');
+      var lat = isUS ? 37.7749 : 41.3110;
+      var lng = isUS ? -122.4194 : 69.2795;
+      var heading = 30, speed = 16.67;
       var cbs = [];
       function pos() {
         return { coords: { latitude: lat, longitude: lng, speed: speed, heading: heading, accuracy: 5, altitude: null, altitudeAccuracy: null }, timestamp: Date.now() };
@@ -168,13 +171,13 @@
       navigator.geolocation.clearWatch = function() {};
       setInterval(function() {
         lat += 0.00015;
-        lng += 0.00020;
+        lng += isUS ? -0.00020 : 0.00020;
         heading = (heading + 3) % 360;
         speed = 14 + Math.random() * 6;
         var p = pos();
         cbs.forEach(function(cb) { cb(p); });
       }, 2000);
-      console.log('Mock GPS active: Tashkent, ~60 km/h');
+      console.log('Mock GPS active: ' + (isUS ? 'San Francisco' : 'Tashkent') + ', ~60 km/h');
     })();
   }
   </script>

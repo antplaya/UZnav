@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { UZBEKISTAN_CENTER, UZBEKISTAN_ZOOM, UZBEKISTAN_CITIES } from './cities.js';
+import { UZBEKISTAN_CENTER, UZBEKISTAN_ZOOM, UZBEKISTAN_CITIES, getRegion } from './cities.js';
 
 let map;
 let currentTheme = 'dark';
@@ -64,6 +64,16 @@ function handleUserInteraction() {
   }
 }
 
+let currentRegionKey = 'uz';
+
+/**
+ * Switch to a different region — update city markers and fly to region center.
+ */
+export function setMapRegion(regionKey) {
+  currentRegionKey = regionKey;
+  addCityMarkers();
+}
+
 /**
  * Add city markers as DOM elements (HTML markers).
  */
@@ -72,7 +82,8 @@ function addCityMarkers() {
   cityMarkers.forEach((m) => m.remove());
   cityMarkers = [];
 
-  UZBEKISTAN_CITIES.forEach((city) => {
+  const region = getRegion(currentRegionKey);
+  region.cities.forEach((city) => {
     const el = document.createElement('div');
     el.className = city.capital ? 'city-marker capital' : 'city-marker';
 

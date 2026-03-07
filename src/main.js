@@ -4,9 +4,11 @@ import {
   addTrafficLayer, removeTrafficLayer,
   addRadarMarkers, removeRadarMarkers,
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
+  setMapRegion,
 } from './modules/map.js';
 import { initRouting, addWaypoint, removeWaypointByIndex, clearRoute } from './modules/routing.js';
-import { searchLocation, reverseGeocode } from './modules/search.js';
+import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
+import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
 import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive } from './modules/navigation.js';
@@ -331,6 +333,13 @@ async function initGps() {
   const pos = await getCurrentPosition();
   if (pos) {
     gpsAvailable = true;
+
+    // Auto-detect region from GPS location
+    const region = detectRegion(pos.lat, pos.lng);
+    setMapRegion(region);
+    setSearchRegion(region);
+    flyTo(pos.lng, pos.lat, 12);
+
     updateGpsPosition(pos.lat, pos.lng, pos.heading, pos.speed);
     setGpsStatus('GPS active');
     document.getElementById('gps-status').classList.add('active');

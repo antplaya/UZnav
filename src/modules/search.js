@@ -1,4 +1,4 @@
-import { UZBEKISTAN_BOUNDS } from './cities.js';
+import { getRegion } from './cities.js';
 
 // Yandex Geocoder (primary — best UZ address coverage)
 const YANDEX_GEOCODER_URL = 'https://geocode-maps.yandex.ru/1.x/';
@@ -9,16 +9,22 @@ const YANDEX_API_KEY = '';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
 
-// UZ bounding box for Yandex: "lower-left lng,lat ~ upper-right lng,lat"
-const YANDEX_BBOX = `${UZBEKISTAN_BOUNDS.west},${UZBEKISTAN_BOUNDS.south}~${UZBEKISTAN_BOUNDS.east},${UZBEKISTAN_BOUNDS.north}`;
+let currentRegionKey = 'uz';
 
 /**
- * Search for locations. Tries Yandex first (better UZ data), falls back to Nominatim.
+ * Set the active region for search biasing.
+ */
+export function setSearchRegion(regionKey) {
+  currentRegionKey = regionKey;
+}
+
+/**
+ * Search for locations. Tries Yandex first (for UZ), falls back to Nominatim.
  */
 export async function searchLocation(query) {
   if (!query || query.trim().length < 2) return [];
 
-  if (YANDEX_API_KEY) {
+  if (YANDEX_API_KEY && currentRegionKey === 'uz') {
     try {
       const results = await searchYandex(query);
       if (results.length > 0) return results;
@@ -31,13 +37,16 @@ export async function searchLocation(query) {
 }
 
 async function searchYandex(query) {
+  const region = getRegion('uz');
+  const bbox = `${region.bounds.west},${region.bounds.south}~${region.bounds.east},${region.bounds.north}`;
+
   const params = new URLSearchParams({
     apikey: YANDEX_API_KEY,
     geocode: query.trim(),
     format: 'json',
     lang: 'en_US',
     results: '5',
-    bbox: YANDEX_BBOX,
+    bbox,
     rspn: '1',
   });
 
@@ -60,12 +69,14 @@ async function searchYandex(query) {
 }
 
 async function searchNominatim(query) {
+  const region = getRegion(currentRegionKey);
+
   const params = new URLSearchParams({
     q: query.trim(),
     format: 'jsonv2',
     limit: '5',
-    countrycodes: 'uz',
-    viewbox: `${UZBEKISTAN_BOUNDS.west},${UZBEKISTAN_BOUNDS.north},${UZBEKISTAN_BOUNDS.east},${UZBEKISTAN_BOUNDS.south}`,
+    countrycodes: region.countrycodes,
+    viewbox: `${region.bounds.west},${region.bounds.north},${region.bounds.east},${region.bounds.south}`,
     bounded: '0',
     addressdetails: '1',
   });
@@ -87,10 +98,10 @@ async function searchNominatim(query) {
 
 /**
  * Reverse geocode coordinates to a place name.
- * Tries Yandex first, falls back to Nominatim.
+ * Tries Yandex first (for UZ), falls back to Nominatim.
  */
 export async function reverseGeocode(lat, lng) {
-  if (YANDEX_API_KEY) {
+  if (YANDEX_API_KEY && currentRegionKey === 'uz') {
     try {
       const name = await reverseYandex(lat, lng);
       if (name) return name;
