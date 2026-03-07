@@ -236,7 +236,7 @@ export function updateGpsPosition(lat, lng, heading, speed) {
       : map.getBearing();
     map.easeTo({
       center: [lng, lat],
-      zoom: Math.max(map.getZoom(), 16),
+      zoom: Math.max(map.getZoom(), 17),
       bearing,
       pitch: 50,
       duration: 500,
@@ -252,7 +252,7 @@ export function centerOnGps() {
   ignoreNextInteraction = true;
   map.easeTo({
     center: [gpsLastPos.lng, gpsLastPos.lat],
-    zoom: Math.max(map.getZoom(), 16),
+    zoom: Math.max(map.getZoom(), 17),
     duration: 800,
   });
 }
