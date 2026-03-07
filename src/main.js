@@ -6,7 +6,7 @@ import {
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
   setMapRegion,
 } from './modules/map.js';
-import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute } from './modules/routing.js';
+import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
@@ -161,9 +161,18 @@ document.getElementById('start-nav-btn').addEventListener('click', () => {
   sidebar.classList.add('collapsed');
   sidebarToggle.classList.add('collapsed');
 
+  setInteractive(false);
   setFollowMode('follow-heading');
   setLocateButtonState('follow-heading');
   showNavHud();
+});
+
+// Edit route button (toggle map tap to add waypoints during nav)
+const navEditBtn = document.getElementById('nav-edit-btn');
+navEditBtn.addEventListener('click', () => {
+  const isEditing = navEditBtn.classList.toggle('active');
+  setInteractive(isEditing);
+  showToast(isEditing ? 'Tap map to add stops' : 'Edit mode off', 'info');
 });
 
 // Exit navigation button
@@ -174,6 +183,8 @@ document.getElementById('nav-exit-btn').addEventListener('click', () => {
 function exitNavigation() {
   stopNavigation();
   hideNavHud();
+  setInteractive(true);
+  navEditBtn.classList.remove('active');
   setFollowMode('off');
   setLocateButtonState('off');
 

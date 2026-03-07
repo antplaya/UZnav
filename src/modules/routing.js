@@ -109,6 +109,10 @@ export function getWaypointCoords() {
   return directions.waypointsCoordinates;
 }
 
+export function setInteractive(enabled) {
+  if (directions) directions.interactive = enabled;
+}
+
 export function getDirections() {
   return directions;
 }
