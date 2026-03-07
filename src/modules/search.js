@@ -70,16 +70,25 @@ async function searchYandex(query) {
 
 async function searchNominatim(query) {
   const region = getRegion(currentRegionKey);
+  const trimmed = query.trim();
+
+  // Detect address-like queries (starts with a number) → use structured search
+  const isAddress = /^\d/.test(trimmed);
 
   const params = new URLSearchParams({
-    q: query.trim(),
     format: 'jsonv2',
     limit: '5',
     countrycodes: region.countrycodes,
-    viewbox: `${region.bounds.west},${region.bounds.north},${region.bounds.east},${region.bounds.south}`,
-    bounded: '0',
     addressdetails: '1',
   });
+
+  if (isAddress) {
+    params.set('street', trimmed);
+  } else {
+    params.set('q', trimmed);
+    params.set('viewbox', `${region.bounds.west},${region.bounds.north},${region.bounds.east},${region.bounds.south}`);
+    params.set('bounded', '0');
+  }
 
   const res = await fetch(`${NOMINATIM_URL}?${params}`, {
     headers: { 'User-Agent': 'UZnav/1.0' },
@@ -87,13 +96,38 @@ async function searchNominatim(query) {
 
   if (!res.ok) throw new Error(`Nominatim geocoding failed: ${res.status}`);
 
-  const data = await res.json();
-  return data.map((item) => ({
-    name: item.display_name,
-    shortName: item.name || item.display_name.split(',')[0],
-    lat: parseFloat(item.lat),
-    lng: parseFloat(item.lon),
-  }));
+  let data = await res.json();
+
+  // If structured search found nothing, fall back to free-form
+  if (data.length === 0 && isAddress) {
+    const fallbackParams = new URLSearchParams({
+      q: trimmed,
+      format: 'jsonv2',
+      limit: '5',
+      countrycodes: region.countrycodes,
+      addressdetails: '1',
+    });
+    const res2 = await fetch(`${NOMINATIM_URL}?${fallbackParams}`, {
+      headers: { 'User-Agent': 'UZnav/1.0' },
+    });
+    if (res2.ok) data = await res2.json();
+  }
+
+  return data.map((item) => {
+    const addr = item.address || {};
+    const shortParts = [];
+    if (addr.house_number) shortParts.push(addr.house_number);
+    if (addr.road) shortParts.push(addr.road);
+    if (addr.city || addr.town || addr.village) shortParts.push(addr.city || addr.town || addr.village);
+    const shortName = shortParts.length > 0 ? shortParts.join(', ') : (item.name || item.display_name.split(',')[0]);
+
+    return {
+      name: item.display_name,
+      shortName,
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+    };
+  });
 }
 
 /**
