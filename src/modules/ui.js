@@ -28,17 +28,34 @@ export function setupSidebarToggle() {
   });
 }
 
-export function setupSearch(onSearch) {
+export function setupSearch(onSearch, onAutocomplete) {
+  let debounceTimer = null;
+
   els.searchBtn.addEventListener('click', () => {
+    clearTimeout(debounceTimer);
     onSearch(els.searchInput.value);
   });
 
   els.searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      clearTimeout(debounceTimer);
       onSearch(els.searchInput.value);
     }
   });
+
+  if (onAutocomplete) {
+    els.searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const val = els.searchInput.value.trim();
+      if (val.length < 3) {
+        hideSearchResults();
+        return;
+      }
+      // Debounce 600ms to respect Nominatim rate limits
+      debounceTimer = setTimeout(() => onAutocomplete(val), 600);
+    });
+  }
 }
 
 export function showSearchResults(results, onSelect) {

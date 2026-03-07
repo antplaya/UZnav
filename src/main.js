@@ -45,7 +45,7 @@ let lastSpeedKmh = 0;
 // --- Init ---
 initUI();
 setupSidebarToggle();
-setupSearch(handleSearch);
+setupSearch(handleSearch, handleAutocomplete);
 
 // Theme toggle
 if (currentTheme === 'light') {
@@ -244,6 +244,24 @@ async function handleWaypointAdd({ lng, lat }) {
     waypointNames.set(key, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   }
   refreshWaypointList();
+}
+
+async function handleAutocomplete(query) {
+  try {
+    const results = await searchLocation(query);
+    if (results.length === 0) {
+      hideSearchResults();
+      return;
+    }
+    showSearchResults(results, (result) => {
+      const key = coordKey(result.lng, result.lat);
+      waypointNames.set(key, result.shortName);
+      addWaypoint(result.lng, result.lat);
+      flyTo(result.lng, result.lat, 16);
+    });
+  } catch {
+    // Silently ignore autocomplete errors
+  }
 }
 
 async function handleSearch(query) {
