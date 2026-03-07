@@ -283,6 +283,10 @@ export function getMap() {
   return map;
 }
 
+export function getGpsPosition() {
+  return gpsLastPos;
+}
+
 // ===== TRAFFIC OVERLAY =====
 // Yandex traffic tiles — only accessible from CIS region (Russia, Uzbekistan, etc.)
 

@@ -1,12 +1,12 @@
 import './style.css';
 import {
-  initMap, flyTo, setGpsMarker, setMapTheme, getMap,
+  initMap, flyTo, setGpsMarker, setMapTheme, getMap, getGpsPosition,
   addTrafficLayer, removeTrafficLayer,
   addRadarMarkers, removeRadarMarkers,
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
   setMapRegion,
 } from './modules/map.js';
-import { initRouting, addWaypoint, removeWaypointByIndex, clearRoute } from './modules/routing.js';
+import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
@@ -246,6 +246,26 @@ async function handleWaypointAdd({ lng, lat }) {
   refreshWaypointList();
 }
 
+function routeToDestination(result) {
+  const gps = getGpsPosition();
+  const destKey = coordKey(result.lng, result.lat);
+  waypointNames.set(destKey, result.shortName);
+
+  if (gps && currentWaypoints.length === 0) {
+    // Auto-route from current GPS to destination
+    const originKey = coordKey(gps.lng, gps.lat);
+    reverseGeocode(gps.lat, gps.lng).then((name) => {
+      waypointNames.set(originKey, name);
+    }).catch(() => {
+      waypointNames.set(originKey, 'My location');
+    });
+    setWaypoints([[gps.lng, gps.lat], [result.lng, result.lat]]);
+  } else {
+    addWaypoint(result.lng, result.lat);
+  }
+  flyTo(result.lng, result.lat, 14);
+}
+
 async function handleAutocomplete(query) {
   try {
     const results = await searchLocation(query);
@@ -253,12 +273,7 @@ async function handleAutocomplete(query) {
       hideSearchResults();
       return;
     }
-    showSearchResults(results, (result) => {
-      const key = coordKey(result.lng, result.lat);
-      waypointNames.set(key, result.shortName);
-      addWaypoint(result.lng, result.lat);
-      flyTo(result.lng, result.lat, 16);
-    });
+    showSearchResults(results, routeToDestination);
   } catch {
     // Silently ignore autocomplete errors
   }
@@ -277,12 +292,7 @@ async function handleSearch(query) {
       return;
     }
 
-    showSearchResults(results, (result) => {
-      const key = coordKey(result.lng, result.lat);
-      waypointNames.set(key, result.shortName);
-      addWaypoint(result.lng, result.lat);
-      flyTo(result.lng, result.lat, 12);
-    });
+    showSearchResults(results, routeToDestination);
   } catch (err) {
     showToast('Search failed. Try again.', 'error');
     console.error('Search error:', err);
