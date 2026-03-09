@@ -171,6 +171,10 @@ document.getElementById('start-nav-btn').addEventListener('click', () => {
   setFollowMode('follow-heading');
   setLocateButtonState('follow-heading');
   showNavHud();
+
+  // Immediately populate HUD — don't wait for next GPS tick
+  const gps = getGpsPosition();
+  if (gps) syncNavHud(gps.lat, gps.lng);
 });
 
 // Edit route button (toggle map tap to add waypoints during nav)
@@ -441,6 +445,38 @@ function refreshWaypointList() {
   });
 }
 
+/**
+ * Populate the navigation HUD from current GPS position.
+ * Called on nav start AND on every GPS update while navigating.
+ */
+function syncNavHud(lat, lng) {
+  const navState = navUpdatePosition(lat, lng);
+  if (!navState) return;
+
+  const speedLimit = findNearbySpeedLimit(lat, lng);
+  const step = navState.nextStep || navState.currentStep;
+  const maneuver = step?.maneuver || {};
+  const instruction = step?.name
+    ? `${formatManeuverShort(maneuver)} on ${step.name}`
+    : formatManeuverShort(maneuver);
+
+  updateNavHud({
+    distanceToTurn: navState.distanceToNextManeuver,
+    instruction,
+    maneuverType: maneuver.type,
+    maneuverModifier: maneuver.modifier,
+    eta: navState.eta,
+    remaining: navState.remainingDistance,
+    speed: lastSpeedKmh,
+    speedLimit: speedLimit || null,
+  });
+
+  if (navState.arrived) {
+    showToast('You have arrived!', 'success');
+    exitNavigation();
+  }
+}
+
 function formatManeuverShort(maneuver) {
   const type = maneuver?.type || '';
   const modifier = maneuver?.modifier || '';
@@ -493,31 +529,7 @@ async function initGps() {
 
         // Navigation HUD update
         if (isNavActive()) {
-          const navState = navUpdatePosition(newPos.lat, newPos.lng);
-          if (navState) {
-            const speedLimit = findNearbySpeedLimit(newPos.lat, newPos.lng);
-            const step = navState.nextStep || navState.currentStep;
-            const maneuver = step?.maneuver || {};
-            const instruction = step?.name
-              ? `${formatManeuverShort(maneuver)} on ${step.name}`
-              : formatManeuverShort(maneuver);
-
-            updateNavHud({
-              distanceToTurn: navState.distanceToNextManeuver,
-              instruction,
-              maneuverType: maneuver.type,
-              maneuverModifier: maneuver.modifier,
-              eta: navState.eta,
-              remaining: navState.remainingDistance,
-              speed: lastSpeedKmh,
-              speedLimit: speedLimit || null,
-            });
-
-            if (navState.arrived) {
-              showToast('You have arrived!', 'success');
-              exitNavigation();
-            }
-          }
+          syncNavHud(newPos.lat, newPos.lng);
 
           // Auto-reroute if off route for 4+ seconds
           if (isOffRoute(newPos.lat, newPos.lng)) {
