@@ -537,7 +537,7 @@ async function initGps() {
     watchPosition(async (newPos) => {
       if (newPos) {
         // Snap GPS to nearest road, fall back to raw position
-        const snapped = await snapToRoad(newPos.lng, newPos.lat);
+        const snapped = await snapToRoad(newPos.lng, newPos.lat, newPos.speed ?? 0);
         // Update map marker + follow mode camera (snapped position if available)
         updateGpsPosition(newPos.lat, newPos.lng, newPos.heading, newPos.speed, snapped?.lat, snapped?.lng);
 
@@ -551,7 +551,7 @@ async function initGps() {
         if (isNavActive()) {
           syncNavHud(newPos.lat, newPos.lng);
 
-          // Auto-reroute if off route for 4+ seconds
+          // Auto-reroute if off route — longer delay reduces false triggers at high speed
           if (isOffRoute(newPos.lat, newPos.lng)) {
             if (!rerouteTimer) {
               rerouteTimer = setTimeout(() => {
@@ -561,7 +561,7 @@ async function initGps() {
                 if (!dest) return;
                 showToast(t('recalculating'), 'info');
                 setWaypoints([[newPos.lng, newPos.lat], dest]);
-              }, 4000);
+              }, 6000);
             }
           } else {
             clearTimeout(rerouteTimer);

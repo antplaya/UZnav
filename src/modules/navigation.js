@@ -8,8 +8,8 @@ let currentStepIndex = 0;
 let totalDistance = 0;
 let totalDuration = 0;
 
-const MANEUVER_ADVANCE_RADIUS = 50; // meters — advance step when within this distance
-const ARRIVAL_RADIUS = 30; // meters — consider arrived when this close to final maneuver
+const MANEUVER_ADVANCE_RADIUS = 120; // meters — advance step when within this distance
+const ARRIVAL_RADIUS = 40; // meters — consider arrived when this close to final maneuver
 
 /**
  * Haversine distance between two lat/lng points in meters.
@@ -46,18 +46,30 @@ export function startNavigation(route) {
 export function updatePosition(lat, lng) {
   if (!active || steps.length === 0) return null;
 
-  // Check if we should advance to next step
-  while (currentStepIndex < steps.length - 1) {
+  // Advance steps: check current AND next several steps to handle high-speed GPS gaps.
+  // At 120 km/h with 2s GPS interval the car moves ~67m — could skip past multiple short steps.
+  let advanced = true;
+  while (advanced && currentStepIndex < steps.length - 1) {
+    advanced = false;
     const nextStep = steps[currentStepIndex + 1];
-    if (!nextStep.maneuver || !nextStep.maneuver.location) break;
+    if (!nextStep.maneuver?.location) break;
 
     const [mLng, mLat] = nextStep.maneuver.location;
     const dist = haversine(lat, lng, mLat, mLng);
 
     if (dist < MANEUVER_ADVANCE_RADIUS) {
       currentStepIndex++;
-    } else {
-      break;
+      advanced = true;
+    } else if (currentStepIndex + 2 < steps.length) {
+      // Look one more step ahead: if we're closer to step+2 than step+1 we've overshot
+      const overStep = steps[currentStepIndex + 2];
+      if (overStep.maneuver?.location) {
+        const [oLng, oLat] = overStep.maneuver.location;
+        if (haversine(lat, lng, oLat, oLng) < haversine(lat, lng, mLat, mLng)) {
+          currentStepIndex++;
+          advanced = true;
+        }
+      }
     }
   }
 
@@ -129,7 +141,7 @@ export function isActive() {
   return active;
 }
 
-const OFF_ROUTE_THRESHOLD = 150; // meters
+const OFF_ROUTE_THRESHOLD = 250; // meters — larger to avoid false triggers at speed
 
 /**
  * Returns true if GPS position is far from all nearby maneuver points.
@@ -137,7 +149,8 @@ const OFF_ROUTE_THRESHOLD = 150; // meters
  */
 export function isOffRoute(lat, lng) {
   if (!active || steps.length === 0) return false;
-  const end = Math.min(currentStepIndex + 4, steps.length);
+  // Check more steps ahead at speed — fast travel can place you far from nearby maneuvers
+  const end = Math.min(currentStepIndex + 8, steps.length);
   for (let i = currentStepIndex; i < end; i++) {
     const loc = steps[i]?.maneuver?.location;
     if (loc && haversine(lat, lng, loc[1], loc[0]) < OFF_ROUTE_THRESHOLD) return false;

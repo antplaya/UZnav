@@ -3,7 +3,8 @@ const OSRM_MATCH = 'https://router.project-osrm.org/match/v1/driving';
 let lastSnappedPos = null;
 let pendingCtrl = null;
 let lastSnapTime = 0;
-const THROTTLE_MS = 1500;
+const THROTTLE_MS = 800;         // faster refresh for smoother tracking
+const SNAP_SKIP_SPEED_MS = 22;  // skip snapping above ~80 km/h (22 m/s) — too fast to benefit
 
 /**
  * Snap a GPS coordinate to the nearest road using OSRM /match.
@@ -11,7 +12,10 @@ const THROTTLE_MS = 1500;
  * Throttled to avoid hammering the public API.
  * @returns {Promise<{lat, lng}|null>}
  */
-export async function snapToRoad(lng, lat) {
+export async function snapToRoad(lng, lat, speedMs = 0) {
+  // At high speed the snap result is stale before it arrives — use raw GPS
+  if (speedMs >= SNAP_SKIP_SPEED_MS) return null;
+
   const now = Date.now();
   if (now - lastSnapTime < THROTTLE_MS && lastSnappedPos) return lastSnappedPos;
   lastSnapTime = now;
@@ -22,7 +26,7 @@ export async function snapToRoad(lng, lat) {
 
   try {
     const res = await fetch(
-      `${OSRM_MATCH}/${lng},${lat};${lng},${lat}?radiuses=25;25&geometries=geojson&overview=false&timestamps=0;1`,
+      `${OSRM_MATCH}/${lng},${lat};${lng},${lat}?radiuses=50;50&geometries=geojson&overview=false&timestamps=0;1`,
       { signal: ctrl.signal }
     );
     if (!res.ok) return null;
