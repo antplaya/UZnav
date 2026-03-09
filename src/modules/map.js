@@ -141,7 +141,7 @@ function addHousenumberLayer() {
 let gpsLastPos = null;
 
 /**
- * Create or get GPS marker DOM element.
+ * Create or get GPS marker DOM element (Tesla car icon).
  */
 function ensureGpsMarker() {
   if (!gpsMarkerEl) {
@@ -152,12 +152,37 @@ function ensureGpsMarker() {
     pulse.className = 'gps-pulse';
     gpsMarkerEl.appendChild(pulse);
 
-    const dot = document.createElement('div');
-    dot.className = 'gps-dot';
-    gpsMarkerEl.appendChild(dot);
-
+    // Tesla car SVG — the whole element rotates with heading
     gpsArrowEl = document.createElement('div');
-    gpsArrowEl.className = 'gps-arrow';
+    gpsArrowEl.className = 'gps-car';
+    gpsArrowEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 100" width="36" height="56">
+      <!-- Shadow -->
+      <ellipse cx="32" cy="95" rx="18" ry="4" fill="rgba(0,0,0,0.25)"/>
+      <!-- Body -->
+      <path d="M14 68 L14 52 Q14 30 20 22 L24 14 Q26 8 32 8 Q38 8 40 14 L44 22 Q50 30 50 52 L50 68 Q50 74 44 76 L20 76 Q14 74 14 68Z" fill="#e8e8e8" stroke="#bbb" stroke-width="1"/>
+      <!-- Roof -->
+      <path d="M22 42 Q22 24 32 20 Q42 24 42 42Z" fill="#c8c8c8" stroke="#aaa" stroke-width="0.5"/>
+      <!-- Windshield -->
+      <path d="M23 42 Q23 28 32 24 Q41 28 41 42Z" fill="#90c8f0" opacity="0.85"/>
+      <!-- Rear window -->
+      <path d="M20 52 L22 42 L42 42 L44 52Z" fill="#90c8f0" opacity="0.7"/>
+      <!-- Front grille / bumper -->
+      <rect x="22" y="72" width="20" height="4" rx="2" fill="#ccc"/>
+      <!-- Headlights -->
+      <rect x="17" y="70" width="8" height="3" rx="1.5" fill="#fff" opacity="0.9"/>
+      <rect x="39" y="70" width="8" height="3" rx="1.5" fill="#fff" opacity="0.9"/>
+      <!-- Taillights -->
+      <rect x="16" y="54" width="6" height="3" rx="1.5" fill="#ff4444" opacity="0.9"/>
+      <rect x="42" y="54" width="6" height="3" rx="1.5" fill="#ff4444" opacity="0.9"/>
+      <!-- Wheels -->
+      <ellipse cx="18" cy="62" rx="5" ry="7" fill="#444" stroke="#666" stroke-width="1"/>
+      <ellipse cx="46" cy="62" rx="5" ry="7" fill="#444" stroke="#666" stroke-width="1"/>
+      <ellipse cx="18" cy="62" rx="2.5" ry="3.5" fill="#888"/>
+      <ellipse cx="46" cy="62" rx="2.5" ry="3.5" fill="#888"/>
+      <!-- Tesla T logo -->
+      <rect x="29" y="16" width="6" height="1.5" rx="0.5" fill="#cc0000"/>
+      <rect x="31.5" y="16" width="1" height="4" rx="0.5" fill="#cc0000"/>
+    </svg>`;
     gpsMarkerEl.appendChild(gpsArrowEl);
   }
   return gpsMarkerEl;
@@ -185,9 +210,6 @@ function setGpsHeading(heading) {
   if (!gpsArrowEl) return;
   if (heading !== null && heading !== undefined && !isNaN(heading)) {
     gpsArrowEl.style.transform = `rotate(${heading}deg)`;
-    gpsArrowEl.classList.add('visible');
-  } else {
-    gpsArrowEl.classList.remove('visible');
   }
 }
 

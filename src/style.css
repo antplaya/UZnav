@@ -559,55 +559,38 @@ html, body {
 /* ===== GPS MARKER (DOM) ===== */
 .gps-marker {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .gps-pulse {
   position: absolute;
-  inset: 4px;
+  width: 48px;
+  height: 48px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
   border-radius: 50%;
   background: rgba(0, 180, 216, 0.25);
   animation: gps-pulse 2s ease-out infinite;
+  pointer-events: none;
 }
 
-.gps-dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #00b4d8;
-  border: 3px solid #fff;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-  z-index: 2;
-}
-
-.gps-arrow {
-  position: absolute;
-  top: -2px;
-  left: 50%;
-  transform: translateX(-50%) rotate(0deg);
-  transform-origin: center 22px;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 14px solid #00b4d8;
-  opacity: 0;
-  transition: opacity 0.3s, transform 0.3s;
-  z-index: 1;
-}
-
-.gps-arrow.visible {
-  opacity: 1;
+.gps-car {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.4s ease-out;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 @keyframes gps-pulse {
-  0% { transform: scale(0.5); opacity: 1; }
-  100% { transform: scale(1.5); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
 }
 
 /* ===== LOCATE / FOLLOW GPS BUTTON ===== */
