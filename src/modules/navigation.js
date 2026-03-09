@@ -128,3 +128,19 @@ export function stopNavigation() {
 export function isActive() {
   return active;
 }
+
+const OFF_ROUTE_THRESHOLD = 150; // meters
+
+/**
+ * Returns true if GPS position is far from all nearby maneuver points.
+ * Used to trigger rerouting.
+ */
+export function isOffRoute(lat, lng) {
+  if (!active || steps.length === 0) return false;
+  const end = Math.min(currentStepIndex + 4, steps.length);
+  for (let i = currentStepIndex; i < end; i++) {
+    const loc = steps[i]?.maneuver?.location;
+    if (loc && haversine(lat, lng, loc[1], loc[0]) < OFF_ROUTE_THRESHOLD) return false;
+  }
+  return true;
+}

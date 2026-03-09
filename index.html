@@ -164,6 +164,21 @@
         </div>
       </div>
     </div>
+    <!-- Place Card (Waze-like bottom sheet) -->
+    <div id="place-card" class="place-card hidden">
+      <div class="place-card-handle"></div>
+      <div class="place-card-body">
+        <span id="place-card-icon" class="place-card-icon-badge"></span>
+        <div class="place-card-text">
+          <h3 id="place-card-name" class="place-card-name"></h3>
+          <p id="place-card-sub" class="place-card-sub"></p>
+        </div>
+        <button id="place-card-close" class="place-card-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="place-card-actions">
+        <button id="place-card-route-btn" class="btn-start-nav">Route Here</button>
+      </div>
+    </div>
   </div>
 
   <!-- Mock GPS for local testing: ?mock-gps (Tashkent) or ?mock-gps-us (San Francisco) -->

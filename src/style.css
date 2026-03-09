@@ -840,6 +840,81 @@ html, body {
   cursor: pointer;
 }
 
+/* ===== PLACE CARD (Waze-like bottom sheet) ===== */
+.place-card {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--panel-bg);
+  border-radius: 16px 16px 0 0;
+  padding: 6px 16px env(safe-area-inset-bottom, 16px);
+  z-index: 300;
+  transform: translateY(0);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.45);
+}
+.place-card.hidden {
+  transform: translateY(110%);
+}
+.place-card-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 12px;
+}
+.place-card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.place-card-icon-badge {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.place-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.place-card-name {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.place-card-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.place-card-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.place-card-actions {
+  padding-bottom: 4px;
+}
+.place-card-actions .btn-start-nav {
+  margin-top: 0;
+}
+
 /* ===== CAMERA WARNING TOAST ===== */
 .toast-warning {
   background: #ff8c00;

@@ -376,6 +376,24 @@ export function showAddStopConfirm(onConfirm, onCancel) {
   popup.querySelector('.add-stop-no').addEventListener('click', () => clearTimeout(timer));
 }
 
+// ===== PLACE CARD (Waze-like bottom sheet) =====
+
+export function showPlaceCard({ name, sub, icon, routeLabel, onRoute }) {
+  document.getElementById('place-card-name').textContent = name || '';
+  document.getElementById('place-card-sub').textContent = sub || '';
+  document.getElementById('place-card-icon').textContent = icon || '📍';
+  const btn = document.getElementById('place-card-route-btn');
+  btn.textContent = routeLabel || 'Route Here';
+  btn.onclick = () => { hidePlaceCard(); onRoute(); };
+  document.getElementById('place-card-close').onclick = hidePlaceCard;
+  document.getElementById('place-card').classList.remove('hidden');
+}
+
+export function hidePlaceCard() {
+  const card = document.getElementById('place-card');
+  if (card) card.classList.add('hidden');
+}
+
 export function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;

@@ -14,7 +14,7 @@ import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
 import { searchPOI } from './modules/poi.js';
 import { snapToRoad } from './modules/snap.js';
-import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive } from './modules/navigation.js';
+import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive, isOffRoute } from './modules/navigation.js';
 import {
   initUI,
   setupSidebarToggle,
@@ -33,7 +33,8 @@ import {
   showNavHud,
   hideNavHud,
   updateNavHud,
-  showAddStopConfirm,
+  showPlaceCard,
+  hidePlaceCard,
 } from './modules/ui.js';
 
 // --- State ---
@@ -45,6 +46,7 @@ let lastCameraAlertTime = 0;
 let gpsAvailable = false;
 let lastRoute = null;
 let lastSpeedKmh = 0;
+let rerouteTimer = null;
 
 // --- Init ---
 initUI();
@@ -186,6 +188,8 @@ document.getElementById('nav-exit-btn').addEventListener('click', () => {
 
 function exitNavigation() {
   stopNavigation();
+  clearTimeout(rerouteTimer);
+  rerouteTimer = null;
   hideNavHud();
   setInteractive(true);
   navEditBtn.classList.remove('active');
@@ -223,16 +227,25 @@ initMap().then((map) => {
     onWaypointChange: handleWaypointChange,
   });
 
-  // Long-press to add waypoints
-  setupLongPress(({ lng, lat }) => {
-    if (isNavActive()) {
-      showAddStopConfirm(
-        () => addWaypoint(lng, lat),
-        () => {}
-      );
-    } else {
-      addWaypoint(lng, lat);
-    }
+  // Long-press to add waypoints — show place card first (Waze pattern)
+  setupLongPress(async ({ lng, lat }) => {
+    let name = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    try { name = await reverseGeocode(lat, lng); } catch {}
+    showPlaceCard({
+      name,
+      icon: '📍',
+      routeLabel: isNavActive() ? 'Add Stop' : 'Route Here',
+      onRoute: () => {
+        if (isNavActive()) {
+          addWaypoint(lng, lat);
+          showToast('Stop added', 'success');
+        } else {
+          const key = coordKey(lng, lat);
+          waypointNames.set(key, name);
+          addWaypoint(lng, lat);
+        }
+      },
+    });
   });
 
   // POI category chips
@@ -267,7 +280,15 @@ initMap().then((map) => {
         return;
       }
 
-      addPoiMarkers(pois);
+      addPoiMarkers(pois, (poi) => {
+        showPlaceCard({
+          name: poi.name,
+          sub: poi.category,
+          icon: poi.icon,
+          routeLabel: isNavActive() ? 'Add Stop' : 'Route Here',
+          onRoute: () => routeToDestination(poi),
+        });
+      });
       showSearchResults(pois, routeToDestination);
     });
   });
@@ -379,11 +400,16 @@ function handleRouteFound(route) {
   if (route.steps && route.steps.length > 0) {
     renderDirections(route.steps);
   }
-  // Auto-open sidebar so user can see route summary and Start button
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar.classList.contains('collapsed') && !isNavActive()) {
-    sidebar.classList.remove('collapsed');
-    document.getElementById('sidebar-toggle').classList.remove('collapsed');
+  if (isNavActive()) {
+    // Re-arm navigation with the new (rerouted) route
+    startNavigation(route);
+  } else {
+    // Auto-open sidebar so user can see route summary and Start button
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.classList.contains('collapsed')) {
+      sidebar.classList.remove('collapsed');
+      document.getElementById('sidebar-toggle').classList.remove('collapsed');
+    }
   }
 }
 
@@ -492,7 +518,26 @@ async function initGps() {
               exitNavigation();
             }
           }
+
+          // Auto-reroute if off route for 4+ seconds
+          if (isOffRoute(newPos.lat, newPos.lng)) {
+            if (!rerouteTimer) {
+              rerouteTimer = setTimeout(() => {
+                rerouteTimer = null;
+                if (!isNavActive()) return;
+                const dest = currentWaypoints[currentWaypoints.length - 1];
+                if (!dest) return;
+                showToast('Recalculating...', 'info');
+                setWaypoints([[newPos.lng, newPos.lat], dest]);
+              }, 4000);
+            }
+          } else {
+            clearTimeout(rerouteTimer);
+            rerouteTimer = null;
+          }
         } else {
+          clearTimeout(rerouteTimer);
+          rerouteTimer = null;
           updateSpeedDisplay(speedKmh);
         }
 

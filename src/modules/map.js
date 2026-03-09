@@ -422,13 +422,16 @@ export function removeRadarMarkers() {
 
 let poiMarkers = [];
 
-export function addPoiMarkers(pois) {
+export function addPoiMarkers(pois, onSelect) {
   removePoiMarkers();
   pois.forEach((poi) => {
     const el = document.createElement('div');
     el.className = `poi-marker poi-${poi.category}`;
     el.textContent = poi.icon;
     el.title = poi.name;
+    if (onSelect) {
+      el.addEventListener('click', (e) => { e.stopPropagation(); onSelect(poi); });
+    }
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([poi.lng, poi.lat])
       .addTo(map);
