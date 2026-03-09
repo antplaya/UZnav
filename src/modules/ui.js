@@ -1,4 +1,5 @@
 import { formatDistance, formatTime } from './utils.js';
+import { t } from './i18n.js';
 
 let els = {};
 
@@ -157,28 +158,38 @@ export function renderDirections(steps) {
   });
 }
 
+function localizeModifier(mod) {
+  const map = {
+    'left': t('modLeft'), 'right': t('modRight'),
+    'slight left': t('modSlightLeft'), 'slight right': t('modSlightRight'),
+    'sharp left': t('modSharpLeft'), 'sharp right': t('modSharpRight'),
+    'straight': t('modStraight'), 'uturn': t('modUturn'), 'u-turn': t('modUturn'),
+  };
+  return map[mod?.toLowerCase()] ?? mod ?? '';
+}
+
 function formatManeuver(maneuver) {
   const type = maneuver.type || '';
-  const modifier = maneuver.modifier || '';
+  const mod = localizeModifier(maneuver.modifier);
 
   const types = {
-    depart: 'Depart',
-    arrive: 'Arrive',
-    turn: `Turn ${modifier}`,
-    'new name': `Continue on`,
-    merge: `Merge ${modifier}`,
-    'on ramp': `Take ramp ${modifier}`,
-    'off ramp': `Exit ${modifier}`,
-    fork: `Fork ${modifier}`,
-    'end of road': `At end of road, turn ${modifier}`,
-    continue: `Continue ${modifier}`,
-    roundabout: `Roundabout, exit ${modifier}`,
-    rotary: `Rotary, exit ${modifier}`,
-    'roundabout turn': `Roundabout turn ${modifier}`,
+    depart: t('manDepart'),
+    arrive: t('manArrive'),
+    turn: `${t('manTurn')} ${mod}`.trim(),
+    'new name': t('manContinue'),
+    merge: `${t('manMerge')} ${mod}`.trim(),
+    'on ramp': `${t('manRamp')} ${mod}`.trim(),
+    'off ramp': `${t('manExit')} ${mod}`.trim(),
+    fork: `${t('manFork')} ${mod}`.trim(),
+    'end of road': `${t('manTurn')} ${mod}`.trim(),
+    continue: `${t('manContinue')} ${mod}`.trim(),
+    roundabout: `${t('manRoundabout')} ${mod}`.trim(),
+    rotary: `${t('manRotary')} ${mod}`.trim(),
+    'roundabout turn': `${t('manRoundabout')} ${mod}`.trim(),
     notification: '',
   };
 
-  return types[type] || `${type} ${modifier}`.trim() || 'Continue';
+  return types[type] || t('manContinue');
 }
 
 export function hideDirections() {

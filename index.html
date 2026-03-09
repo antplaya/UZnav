@@ -13,6 +13,7 @@
         <h1 class="app-title">UZnav</h1>
         <div class="gps-indicator">
           <span id="gps-status" class="gps-status">GPS...</span>
+          <button id="lang-toggle" class="lang-toggle" aria-label="Toggle language">RU</button>
           <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
             <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
@@ -29,6 +30,7 @@
         <input
           id="search-input"
           type="text"
+          data-i18n="searchPlaceholder"
           placeholder="Search city or address..."
           autocomplete="off"
           enterkeyhint="search"
@@ -42,12 +44,12 @@
 
       <!-- POI Category Chips -->
       <div class="poi-categories">
-        <button class="poi-chip" data-poi="cafe">☕ Cafe</button>
-        <button class="poi-chip" data-poi="restaurant">🍽️ Restaurant</button>
-        <button class="poi-chip" data-poi="fuel">⛽ Gas</button>
-        <button class="poi-chip" data-poi="pharmacy">💊 Pharmacy</button>
-        <button class="poi-chip" data-poi="atm">🏧 ATM</button>
-        <button class="poi-chip" data-poi="parking">🅿️ Parking</button>
+        <button class="poi-chip" data-poi="cafe" data-i18n="poiCafe">☕ Cafe</button>
+        <button class="poi-chip" data-poi="restaurant" data-i18n="poiRestaurant">🍽️ Restaurant</button>
+        <button class="poi-chip" data-poi="fuel" data-i18n="poiFuel">⛽ Gas</button>
+        <button class="poi-chip" data-poi="pharmacy" data-i18n="poiPharmacy">💊 Pharmacy</button>
+        <button class="poi-chip" data-poi="atm" data-i18n="poiAtm">🏧 ATM</button>
+        <button class="poi-chip" data-poi="parking" data-i18n="poiParking">🅿️ Parking</button>
       </div>
 
       <!-- Search Results -->
@@ -58,43 +60,43 @@
         <label class="toggle-label">
           <input type="checkbox" id="traffic-toggle" />
           <span class="toggle-switch"></span>
-          <span>Traffic</span>
+          <span data-i18n="traffic">Traffic</span>
         </label>
         <label class="toggle-label">
           <input type="checkbox" id="radars-toggle" checked />
           <span class="toggle-switch"></span>
-          <span>Speed cameras</span>
+          <span data-i18n="speedCameras">Speed cameras</span>
         </label>
       </div>
 
       <!-- Waypoints -->
       <div class="waypoints-section">
         <div class="section-header">
-          <h2 class="section-title">Route</h2>
-          <button id="clear-route-btn" class="btn-danger-sm">Clear</button>
+          <h2 class="section-title" data-i18n="routeSection">Route</h2>
+          <button id="clear-route-btn" class="btn-danger-sm" data-i18n="clearBtn">Clear</button>
         </div>
         <ul id="waypoints-list" class="waypoints-list"></ul>
-        <p class="hint-text">Long press on map to add a waypoint</p>
+        <p class="hint-text" data-i18n="longPressHint">Long press on map to add a waypoint</p>
       </div>
 
       <!-- Route Summary -->
       <div id="route-summary" class="route-summary hidden">
         <div class="summary-stats">
           <div class="stat">
-            <span class="stat-label">Distance</span>
+            <span class="stat-label" data-i18n="distanceLabel">Distance</span>
             <span id="total-distance" class="stat-value">--</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Est. Time</span>
+            <span class="stat-label" data-i18n="timeLabel">Est. Time</span>
             <span id="total-time" class="stat-value">--</span>
           </div>
         </div>
-        <button id="start-nav-btn" class="btn-start-nav">Start</button>
+        <button id="start-nav-btn" class="btn-start-nav" data-i18n="startBtn">Start</button>
       </div>
 
       <!-- Directions -->
       <div id="directions-container" class="directions-container hidden">
-        <h2 class="section-title">Directions</h2>
+        <h2 class="section-title" data-i18n="directionsTitle">Directions</h2>
         <ol id="directions-list" class="directions-list"></ol>
       </div>
 
@@ -127,7 +129,7 @@
     <!-- Speed Display -->
     <div id="speed-display" class="speed-display hidden">
       <span id="speed-value" class="speed-value">0</span>
-      <span class="speed-unit">km/h</span>
+      <span class="speed-unit" data-i18n="kmhUnit">km/h</span>
     </div>
 
     <!-- Navigation HUD (Waze-like driving overlay) -->
@@ -149,15 +151,15 @@
       <div class="nav-hud-bottom">
         <div class="nav-stat">
           <span id="nav-eta" class="nav-stat-value"></span>
-          <span class="nav-stat-label">ETA</span>
+          <span class="nav-stat-label" data-i18n="etaLabel">ETA</span>
         </div>
         <div class="nav-stat">
           <span id="nav-remaining" class="nav-stat-value"></span>
-          <span class="nav-stat-label">Left</span>
+          <span class="nav-stat-label" data-i18n="leftLabel">Left</span>
         </div>
         <div class="nav-stat">
           <span id="nav-speed" class="nav-stat-value">0</span>
-          <span class="nav-stat-label">km/h</span>
+          <span class="nav-stat-label" data-i18n="kmhUnit">km/h</span>
         </div>
         <div id="nav-speed-limit-container" class="nav-speed-limit hidden">
           <span id="nav-speed-limit"></span>

@@ -1,4 +1,5 @@
 import './style.css';
+import { t, getLang, cycleLang, applyTranslations } from './modules/i18n.js';
 import {
   initMap, flyTo, setGpsMarker, setMapTheme, getMap, getGpsPosition,
   addTrafficLayer, removeTrafficLayer,
@@ -50,8 +51,17 @@ let rerouteTimer = null;
 
 // --- Init ---
 initUI();
+applyTranslations();
 setupSidebarToggle();
 setupSearch(handleSearch, handleAutocomplete);
+
+// Language toggle — cycles EN → RU → UZ → EN
+const langToggleBtn = document.getElementById('lang-toggle');
+langToggleBtn.textContent = getLang().toUpperCase();
+langToggleBtn.addEventListener('click', () => {
+  const next = cycleLang();
+  langToggleBtn.textContent = next.toUpperCase();
+});
 
 // Theme toggle
 if (currentTheme === 'light') {
@@ -123,7 +133,7 @@ document.getElementById('clear-route-btn').addEventListener('click', () => {
 const locateBtn = document.getElementById('locate-btn');
 locateBtn.addEventListener('click', () => {
   if (!gpsAvailable) {
-    showToast('GPS not available', 'info');
+    showToast(t('gpsUnavailable'), 'info');
     return;
   }
 
@@ -151,11 +161,11 @@ onFollowChange((mode) => {
 // Start navigation button
 document.getElementById('start-nav-btn').addEventListener('click', () => {
   if (!lastRoute) {
-    showToast('Build a route first', 'info');
+    showToast(t('buildRouteFirst'), 'info');
     return;
   }
   if (!gpsAvailable) {
-    showToast('GPS not available', 'info');
+    showToast(t('gpsUnavailable'), 'info');
     return;
   }
 
@@ -182,7 +192,7 @@ const navEditBtn = document.getElementById('nav-edit-btn');
 navEditBtn.addEventListener('click', () => {
   const isEditing = navEditBtn.classList.toggle('active');
   setInteractive(isEditing);
-  showToast(isEditing ? 'Tap map to add stops' : 'Edit mode off', 'info');
+  showToast(isEditing ? t('addStopsMode') : t('editModeOff'), 'info');
 });
 
 // Exit navigation button
@@ -238,11 +248,11 @@ initMap().then((map) => {
     showPlaceCard({
       name,
       icon: '📍',
-      routeLabel: isNavActive() ? 'Add Stop' : 'Route Here',
+      routeLabel: isNavActive() ? t('addStop') : t('routeHere'),
       onRoute: () => {
         if (isNavActive()) {
           addWaypoint(lng, lat);
-          showToast('Stop added', 'success');
+          showToast(t('stopAdded'), 'success');
         } else {
           const key = coordKey(lng, lat);
           waypointNames.set(key, name);
@@ -274,11 +284,11 @@ initMap().then((map) => {
       const gps = getGpsPosition();
       const center = gps || { lat: map.getCenter().lat, lng: map.getCenter().lng };
 
-      showToast('Searching nearby...', 'info');
+      showToast(t('searchingNearby'), 'info');
       const pois = await searchPOI(category, center.lat, center.lng, 3000);
 
       if (pois.length === 0) {
-        showToast('None found nearby', 'info');
+        showToast(t('noneFoundNearby'), 'info');
         btn.classList.remove('active');
         activePoi = null;
         return;
@@ -289,7 +299,7 @@ initMap().then((map) => {
           name: poi.name,
           sub: poi.category,
           icon: poi.icon,
-          routeLabel: isNavActive() ? 'Add Stop' : 'Route Here',
+          routeLabel: isNavActive() ? t('addStop') : t('routeHere'),
           onRoute: () => routeToDestination(poi),
         });
       });
@@ -387,13 +397,13 @@ async function handleSearch(query) {
   try {
     const results = await searchLocation(query);
     if (results.length === 0) {
-      showToast('No results found', 'info');
+      showToast(t('noResults'), 'info');
       return;
     }
 
     showSearchResults(results, routeToDestination);
   } catch (err) {
-    showToast('Search failed. Try again.', 'error');
+    showToast(t('searchFailed'), 'error');
     console.error('Search error:', err);
   }
 }
@@ -472,33 +482,43 @@ function syncNavHud(lat, lng) {
   });
 
   if (navState.arrived) {
-    showToast('You have arrived!', 'success');
+    showToast(t('arrived'), 'success');
     exitNavigation();
   }
 }
 
+function localizeModifier(mod) {
+  const map = {
+    'left': t('modLeft'), 'right': t('modRight'),
+    'slight left': t('modSlightLeft'), 'slight right': t('modSlightRight'),
+    'sharp left': t('modSharpLeft'), 'sharp right': t('modSharpRight'),
+    'straight': t('modStraight'), 'uturn': t('modUturn'), 'u-turn': t('modUturn'),
+  };
+  return map[mod?.toLowerCase()] ?? mod ?? '';
+}
+
 function formatManeuverShort(maneuver) {
   const type = maneuver?.type || '';
-  const modifier = maneuver?.modifier || '';
+  const mod = localizeModifier(maneuver?.modifier);
   const types = {
-    depart: 'Depart',
-    arrive: 'Arrive',
-    turn: `Turn ${modifier}`,
-    'new name': 'Continue',
-    merge: `Merge ${modifier}`,
-    'on ramp': `Ramp ${modifier}`,
-    'off ramp': `Exit ${modifier}`,
-    fork: `Fork ${modifier}`,
-    'end of road': `Turn ${modifier}`,
-    continue: 'Continue',
-    roundabout: `Roundabout`,
-    rotary: `Rotary`,
+    depart: t('manDepart'),
+    arrive: t('manArrive'),
+    turn: `${t('manTurn')} ${mod}`.trim(),
+    'new name': t('manContinue'),
+    merge: `${t('manMerge')} ${mod}`.trim(),
+    'on ramp': `${t('manRamp')} ${mod}`.trim(),
+    'off ramp': `${t('manExit')} ${mod}`.trim(),
+    fork: `${t('manFork')} ${mod}`.trim(),
+    'end of road': `${t('manTurn')} ${mod}`.trim(),
+    continue: t('manContinue'),
+    roundabout: t('manRoundabout'),
+    rotary: t('manRotary'),
   };
-  return types[type] || type || 'Continue';
+  return types[type] || t('manContinue');
 }
 
 async function initGps() {
-  setGpsStatus('GPS...');
+  setGpsStatus(t('gpsSearching'));
 
   const pos = await getCurrentPosition();
   if (pos) {
@@ -511,7 +531,7 @@ async function initGps() {
     flyTo(pos.lng, pos.lat, 12);
 
     updateGpsPosition(pos.lat, pos.lng, pos.heading, pos.speed);
-    setGpsStatus('GPS active');
+    setGpsStatus(t('gpsActive'));
     document.getElementById('gps-status').classList.add('active');
 
     watchPosition(async (newPos) => {
@@ -539,7 +559,7 @@ async function initGps() {
                 if (!isNavActive()) return;
                 const dest = currentWaypoints[currentWaypoints.length - 1];
                 if (!dest) return;
-                showToast('Recalculating...', 'info');
+                showToast(t('recalculating'), 'info');
                 setWaypoints([[newPos.lng, newPos.lat], dest]);
               }, 4000);
             }
@@ -561,8 +581,8 @@ async function initGps() {
             if (nearby) {
               lastCameraAlertTime = now;
               const msg = nearby.maxspeed
-                ? `Speed camera ahead! Limit: ${nearby.maxspeed} km/h`
-                : 'Speed camera ahead!';
+                ? `${t('cameraAhead')} ${nearby.maxspeed} ${t('kmhUnit')}`
+                : t('cameraAhead');
               showToast(msg, 'warning');
             }
           }
@@ -570,6 +590,6 @@ async function initGps() {
       }
     });
   } else {
-    setGpsStatus('No GPS');
+    setGpsStatus(t('gpsNone'));
   }
 }

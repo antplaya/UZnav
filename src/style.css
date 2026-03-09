@@ -482,6 +482,25 @@ html, body {
   color: #333 !important;
 }
 
+/* ===== LANGUAGE TOGGLE ===== */
+.lang-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.lang-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ===== THEME TOGGLE ===== */
 .theme-toggle {
   min-width: 36px;
