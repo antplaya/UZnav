@@ -167,7 +167,6 @@ function ensureGpsMarker() {
  * Add/update GPS position marker on the map.
  */
 export function setGpsMarker(lat, lng) {
-  gpsLastPos = { lat, lng };
 
   if (gpsMarker) {
     gpsMarker.setLngLat([lng, lat]);
@@ -213,9 +212,14 @@ export function onFollowChange(callback) {
 
 /**
  * Update GPS position and apply follow mode camera behavior.
+ * Accepts optional snapped coordinates for road-snapped display.
  */
-export function updateGpsPosition(lat, lng, heading, speed) {
-  setGpsMarker(lat, lng);
+export function updateGpsPosition(lat, lng, heading, speed, snappedLat, snappedLng) {
+  const dLat = snappedLat ?? lat;
+  const dLng = snappedLng ?? lng;
+
+  gpsLastPos = { lat: dLat, lng: dLng };
+  setGpsMarker(dLat, dLng);
   setGpsHeading(heading);
 
   if (followMode === 'off') return;
@@ -224,7 +228,7 @@ export function updateGpsPosition(lat, lng, heading, speed) {
 
   if (followMode === 'follow') {
     map.easeTo({
-      center: [lng, lat],
+      center: [dLng, dLat],
       zoom: Math.max(map.getZoom(), 16),
       bearing: 0,
       pitch: 0,
@@ -237,7 +241,7 @@ export function updateGpsPosition(lat, lng, heading, speed) {
     // Offset GPS dot to lower third of screen so more road ahead is visible (like Waze)
     const screenH = map.getContainer().clientHeight;
     map.easeTo({
-      center: [lng, lat],
+      center: [dLng, dLat],
       zoom: Math.max(map.getZoom(), 17),
       bearing,
       pitch: 50,
@@ -245,6 +249,44 @@ export function updateGpsPosition(lat, lng, heading, speed) {
       duration: 500,
     });
   }
+}
+
+/**
+ * Set up long-press handler on the map canvas.
+ * Fires callback after 500ms hold without significant movement.
+ */
+export function setupLongPress(callback) {
+  const canvas = map.getCanvas();
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const timer = setTimeout(() => {
+      const ll = map.unproject([x, y]);
+      callback({ lng: ll.lng, lat: ll.lat });
+    }, 500);
+
+    const cancel = () => {
+      clearTimeout(timer);
+      canvas.removeEventListener('pointermove', move);
+    };
+
+    const move = (me) => {
+      if (Math.hypot(me.clientX - startX, me.clientY - startY) > 10) cancel();
+    };
+
+    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerup', cancel, { once: true });
+    canvas.addEventListener('pointercancel', cancel, { once: true });
+  });
+
+  // Prevent browser context menu on mobile long-press
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 /**
@@ -352,4 +394,27 @@ export function addRadarMarkers(cameras) {
 export function removeRadarMarkers() {
   radarMarkers.forEach((m) => m.remove());
   radarMarkers = [];
+}
+
+// ===== POI MARKERS =====
+
+let poiMarkers = [];
+
+export function addPoiMarkers(pois) {
+  removePoiMarkers();
+  pois.forEach((poi) => {
+    const el = document.createElement('div');
+    el.className = `poi-marker poi-${poi.category}`;
+    el.textContent = poi.icon;
+    el.title = poi.name;
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([poi.lng, poi.lat])
+      .addTo(map);
+    poiMarkers.push(marker);
+  });
+}
+
+export function removePoiMarkers() {
+  poiMarkers.forEach((m) => m.remove());
+  poiMarkers = [];
 }

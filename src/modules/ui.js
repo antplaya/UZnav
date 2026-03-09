@@ -124,6 +124,7 @@ export function showRouteSummary(distance, time) {
   els.routeSummary.classList.remove('hidden');
   els.totalDistance.textContent = formatDistance(distance);
   els.totalTime.textContent = formatTime(time);
+  els.routeSummary.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 export function hideRouteSummary() {
@@ -346,6 +347,33 @@ function getManeuverSvg(type, modifier) {
     default:
       return straight;
   }
+}
+
+/**
+ * Show a confirmation popup to add a stop (during navigation).
+ * Auto-dismisses after 5 seconds.
+ */
+export function showAddStopConfirm(onConfirm, onCancel) {
+  const existing = document.querySelector('.add-stop-confirm');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.className = 'add-stop-confirm';
+  popup.innerHTML = `
+    <p>Add this location as a stop?</p>
+    <div class="add-stop-actions">
+      <button class="add-stop-yes">Add Stop</button>
+      <button class="add-stop-no">Cancel</button>
+    </div>
+  `;
+
+  popup.querySelector('.add-stop-yes').addEventListener('click', () => { popup.remove(); onConfirm(); });
+  popup.querySelector('.add-stop-no').addEventListener('click', () => { popup.remove(); onCancel(); });
+  document.body.appendChild(popup);
+
+  const timer = setTimeout(() => { if (popup.parentNode) popup.remove(); }, 5000);
+  popup.querySelector('.add-stop-yes').addEventListener('click', () => clearTimeout(timer));
+  popup.querySelector('.add-stop-no').addEventListener('click', () => clearTimeout(timer));
 }
 
 export function showToast(message, type = 'info') {

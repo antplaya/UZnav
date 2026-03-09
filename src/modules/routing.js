@@ -28,7 +28,7 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
     },
   });
 
-  directions.interactive = true;
+  directions.interactive = false; // long-press handler adds waypoints instead of single-tap
 
   // Listen for route results (v0.7 API: e.data IS the Directions object)
   directions.on('fetchroutesend', (e) => {

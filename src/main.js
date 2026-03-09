@@ -3,14 +3,17 @@ import {
   initMap, flyTo, setGpsMarker, setMapTheme, getMap, getGpsPosition,
   addTrafficLayer, removeTrafficLayer,
   addRadarMarkers, removeRadarMarkers,
+  addPoiMarkers, removePoiMarkers,
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
-  setMapRegion,
+  setMapRegion, setupLongPress,
 } from './modules/map.js';
 import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
+import { searchPOI } from './modules/poi.js';
+import { snapToRoad } from './modules/snap.js';
 import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive } from './modules/navigation.js';
 import {
   initUI,
@@ -30,6 +33,7 @@ import {
   showNavHud,
   hideNavHud,
   updateNavHud,
+  showAddStopConfirm,
 } from './modules/ui.js';
 
 // --- State ---
@@ -219,6 +223,55 @@ initMap().then((map) => {
     onWaypointChange: handleWaypointChange,
   });
 
+  // Long-press to add waypoints
+  setupLongPress(({ lng, lat }) => {
+    if (isNavActive()) {
+      showAddStopConfirm(
+        () => addWaypoint(lng, lat),
+        () => {}
+      );
+    } else {
+      addWaypoint(lng, lat);
+    }
+  });
+
+  // POI category chips
+  let activePoi = null;
+  document.querySelectorAll('.poi-chip').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const category = btn.dataset.poi;
+
+      if (activePoi === category) {
+        removePoiMarkers();
+        hideSearchResults();
+        btn.classList.remove('active');
+        activePoi = null;
+        return;
+      }
+
+      document.querySelectorAll('.poi-chip').forEach((b) => b.classList.remove('active'));
+      removePoiMarkers();
+      activePoi = category;
+      btn.classList.add('active');
+
+      const gps = getGpsPosition();
+      const center = gps || { lat: map.getCenter().lat, lng: map.getCenter().lng };
+
+      showToast('Searching nearby...', 'info');
+      const pois = await searchPOI(category, center.lat, center.lng, 3000);
+
+      if (pois.length === 0) {
+        showToast('None found nearby', 'info');
+        btn.classList.remove('active');
+        activePoi = null;
+        return;
+      }
+
+      addPoiMarkers(pois);
+      showSearchResults(pois, routeToDestination);
+    });
+  });
+
   // Enable traffic if saved
   if (trafficToggle.checked) {
     addTrafficLayer();
@@ -326,6 +379,12 @@ function handleRouteFound(route) {
   if (route.steps && route.steps.length > 0) {
     renderDirections(route.steps);
   }
+  // Auto-open sidebar so user can see route summary and Start button
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar.classList.contains('collapsed') && !isNavActive()) {
+    sidebar.classList.remove('collapsed');
+    document.getElementById('sidebar-toggle').classList.remove('collapsed');
+  }
 }
 
 function handleWaypointChange(coords) {
@@ -393,10 +452,12 @@ async function initGps() {
     setGpsStatus('GPS active');
     document.getElementById('gps-status').classList.add('active');
 
-    watchPosition((newPos) => {
+    watchPosition(async (newPos) => {
       if (newPos) {
-        // Update map marker + follow mode camera
-        updateGpsPosition(newPos.lat, newPos.lng, newPos.heading, newPos.speed);
+        // Snap GPS to nearest road, fall back to raw position
+        const snapped = await snapToRoad(newPos.lng, newPos.lat);
+        // Update map marker + follow mode camera (snapped position if available)
+        updateGpsPosition(newPos.lat, newPos.lng, newPos.heading, newPos.speed, snapped?.lat, snapped?.lng);
 
         // Update speed display (convert m/s → km/h)
         const speedKmh = (newPos.speed !== null && newPos.speed >= 0)
