@@ -299,9 +299,7 @@ initMap().then((map) => {
           addWaypoint(lng, lat);
           showToast(t('stopAdded'), 'success');
         } else {
-          const key = coordKey(lng, lat);
-          waypointNames.set(key, name);
-          addWaypoint(lng, lat);
+          routeToDestination({ lng, lat, shortName: name });
         }
       },
     });
