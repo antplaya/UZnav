@@ -452,6 +452,11 @@ async function handleSearch(query) {
 }
 
 function handleRouteFound(routes) {
+  if (!routes) {
+    console.warn('[main] handleRouteFound: no routes returned from OSRM');
+    showToast(t('searchFailed'), 'error');
+    return;
+  }
   allRoutes = routes;
   selectedRouteIndex = 0;
   lastRoute = routes[0];
