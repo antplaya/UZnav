@@ -15,6 +15,7 @@ import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
 import { searchPOI } from './modules/poi.js';
 import { snapToRoad } from './modules/snap.js';
+import { installOrsProxy } from './modules/ors-proxy.js';
 import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive, isOffRoute } from './modules/navigation.js';
 import {
   initUI,
@@ -285,6 +286,9 @@ function findNearbySpeedLimit(lat, lng) {
   const limit = parseInt(nearby.maxspeed, 10);
   return isNaN(limit) ? null : limit;
 }
+
+// Install ORS proxy (no-op if API key not set)
+installOrsProxy();
 
 // Init map, then routing, GPS, and layers
 initMap().then((map) => {
