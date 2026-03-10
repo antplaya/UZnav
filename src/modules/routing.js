@@ -36,15 +36,9 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
 
   directions.interactive = false; // long-press handler adds waypoints instead of single-tap
 
-  directions.on('fetchroutesstart', () => {
-    console.log('[routing] fetching route...');
-  });
-
   // Listen for route results
   directions.on('fetchroutesend', (e) => {
-    console.log('[routing] fetchroutesend data:', e?.data);
     if (e.data?.routes?.length > 0) {
-      console.log('[routing] routes found:', e.data.routes.length);
       onRoutesFound(
         e.data.routes.map((r) => ({
           distance: r.distance,
@@ -53,10 +47,11 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
           geometry: r.geometry,
         }))
       );
-    } else {
-      console.warn('[routing] no routes in response:', e?.data);
+    } else if (e.data) {
+      // OSRM responded but returned no routes (e.g. NoRoute error)
       onRoutesFound(null);
     }
+    // e.data=undefined means request was aborted (e.g. clearRoute) — ignore
   });
 
   // Listen for waypoint added (from map click)
