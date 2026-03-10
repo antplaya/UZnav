@@ -8,7 +8,7 @@ import {
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
   setMapRegion, setupLongPress,
 } from './modules/map.js';
-import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive, getWaypointCoords } from './modules/routing.js';
+import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive, getWaypointCoords, getDirections } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
@@ -36,6 +36,8 @@ import {
   updateNavHud,
   showPlaceCard,
   hidePlaceCard,
+  showRouteAlternatives,
+  clearRouteAlternatives,
 } from './modules/ui.js';
 
 // --- State ---
@@ -46,6 +48,8 @@ let cameras = [];
 let lastCameraAlertTime = 0;
 let gpsAvailable = false;
 let lastRoute = null;
+let allRoutes = [];
+let selectedRouteIndex = 0;
 let lastSpeedKmh = 0;
 let rerouteTimer = null;
 
@@ -162,6 +166,9 @@ document.getElementById('clear-route-btn').addEventListener('click', () => {
   waypointNames.clear();
   currentWaypoints = [];
   lastRoute = null;
+  allRoutes = [];
+  selectedRouteIndex = 0;
+  clearRouteAlternatives();
   renderWaypoints([], () => {});
   hideRouteSummary();
   hideDirections();
@@ -446,15 +453,18 @@ async function handleSearch(query) {
   }
 }
 
-function handleRouteFound(route) {
-  lastRoute = route;
-  showRouteSummary(route.distance, route.duration);
-  if (route.steps && route.steps.length > 0) {
-    renderDirections(route.steps);
-  }
+function handleRouteFound(routes) {
+  allRoutes = routes;
+  selectedRouteIndex = 0;
+  lastRoute = routes[0];
+
+  showRouteSummary(lastRoute.distance, lastRoute.duration);
+  showRouteAlternatives(routes, 0, handleRouteSelect);
+  if (lastRoute.steps?.length > 0) renderDirections(lastRoute.steps);
+
   if (isNavActive()) {
-    // Re-arm navigation with the new (rerouted) route
-    startNavigation(route);
+    // Re-arm navigation with the new (rerouted) route — always use fastest
+    startNavigation(lastRoute);
   } else {
     // Auto-open sidebar so user can see route summary and Start button
     const sidebar = document.getElementById('sidebar');
@@ -463,6 +473,21 @@ function handleRouteFound(route) {
       document.getElementById('sidebar-toggle').classList.remove('collapsed');
     }
   }
+}
+
+function handleRouteSelect(index) {
+  selectedRouteIndex = index;
+  lastRoute = allRoutes[index];
+
+  // Tell the directions plugin which alternative to highlight on the map
+  const dir = getDirections();
+  if (dir && typeof dir.selectedRouteIndex !== 'undefined') {
+    dir.selectedRouteIndex = index;
+  }
+
+  showRouteSummary(lastRoute.distance, lastRoute.duration);
+  showRouteAlternatives(allRoutes, index, handleRouteSelect);
+  if (lastRoute.steps?.length > 0) renderDirections(lastRoute.steps);
 }
 
 function handleWaypointChange(coords) {

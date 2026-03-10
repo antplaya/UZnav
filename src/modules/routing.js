@@ -30,6 +30,7 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
       overview: 'full',
       steps: 'true',
       geometries: 'geojson',
+      alternatives: 'true',
       ...(excludeParts.length ? { exclude: excludeParts.join(',') } : {}),
     },
   });
@@ -38,13 +39,15 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
 
   // Listen for route results (v0.7 API: e.data IS the Directions object)
   directions.on('fetchroutesend', (e) => {
-    if (e.data && e.data.routes && e.data.routes.length > 0) {
-      const route = e.data.routes[0];
-      onRoutesFound({
-        distance: route.distance, // meters
-        duration: route.duration, // seconds
-        steps: route.legs ? route.legs.flatMap((leg) => leg.steps || []) : [],
-      });
+    if (e.data?.routes?.length > 0) {
+      onRoutesFound(
+        e.data.routes.map((r) => ({
+          distance: r.distance,
+          duration: r.duration,
+          steps: r.legs ? r.legs.flatMap((leg) => leg.steps || []) : [],
+          geometry: r.geometry,
+        }))
+      );
     }
   });
 

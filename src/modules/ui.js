@@ -132,6 +132,31 @@ export function hideRouteSummary() {
   els.routeSummary.classList.add('hidden');
 }
 
+export function showRouteAlternatives(routes, selectedIndex, onSelect) {
+  const container = document.getElementById('route-alternatives');
+  if (!container) return;
+  if (routes.length < 2) {
+    container.classList.add('hidden');
+    return;
+  }
+  container.innerHTML = '';
+  routes.forEach((route, i) => {
+    const card = document.createElement('button');
+    card.className = 'route-alt-card' + (i === selectedIndex ? ' selected' : '');
+    const km = (route.distance / 1000).toFixed(1);
+    const mins = Math.round(route.duration / 60);
+    card.innerHTML = `<span class="alt-card-index">${i + 1}</span><span class="alt-card-stats">${km} km · ${mins} min</span>`;
+    card.addEventListener('click', () => onSelect(i));
+    container.appendChild(card);
+  });
+  container.classList.remove('hidden');
+}
+
+export function clearRouteAlternatives() {
+  const el = document.getElementById('route-alternatives');
+  if (el) { el.innerHTML = ''; el.classList.add('hidden'); }
+}
+
 export function renderDirections(steps) {
   els.directionsContainer.classList.remove('hidden');
   els.directionsList.innerHTML = '';
