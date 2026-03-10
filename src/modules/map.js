@@ -16,10 +16,31 @@ let followMode = 'off'; // 'off' | 'follow' | 'follow-heading'
 let onFollowModeChange = null;
 let ignoreNextInteraction = false;
 
-const VECTOR_STYLES = {
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-  light: 'https://tiles.openfreemap.org/styles/bright',
-};
+function makeYandexStyle(theme) {
+  const isDark = theme === 'dark';
+  return {
+    version: 8,
+    sources: {
+      'yandex-map': {
+        type: 'raster',
+        tiles: ['https://core-renderer-tiles.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=ru_RU'],
+        tileSize: 256,
+        attribution: '© <a href="https://yandex.com/maps/" target="_blank">Yandex Maps</a>',
+        maxzoom: 19,
+      },
+    },
+    layers: [{
+      id: 'yandex-map-layer',
+      type: 'raster',
+      source: 'yandex-map',
+      paint: isDark ? {
+        'raster-brightness-max': 0.6,
+        'raster-saturation': -0.4,
+        'raster-contrast': 0.1,
+      } : {},
+    }],
+  };
+}
 
 /**
  * Initialize MapLibre GL JS map with dark tiles and city markers.
@@ -32,7 +53,7 @@ export function initMap() {
   return new Promise((resolve) => {
     map = new maplibregl.Map({
       container: 'map',
-      style: VECTOR_STYLES[currentTheme],
+      style: makeYandexStyle(currentTheme),
       center: [UZBEKISTAN_CENTER[1], UZBEKISTAN_CENTER[0]],
       zoom: UZBEKISTAN_ZOOM,
       attributionControl: true,
@@ -47,7 +68,6 @@ export function initMap() {
 
     map.on('load', () => {
       addCityMarkers();
-      addHousenumberLayer();
       resolve(map);
     });
   });
@@ -332,11 +352,10 @@ export function setMapTheme(theme, onReady) {
   const hadTraffic = !!map.getSource('yandex-traffic');
   currentTheme = theme;
 
-  map.setStyle(VECTOR_STYLES[theme]);
+  map.setStyle(makeYandexStyle(theme));
 
   map.once('style.load', () => {
     addCityMarkers();
-    addHousenumberLayer();
     if (hadTraffic) addTrafficLayer();
     if (onReady) onReady();
   });
