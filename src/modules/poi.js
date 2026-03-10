@@ -24,9 +24,8 @@ export async function searchPOI(category, lat, lng, radius = 3000) {
   const cat = POI_CATEGORIES[category];
   if (!cat) return [];
 
-  const query = `[out:json][timeout:15];
-node["amenity"="${cat.amenity}"](around:${radius},${lat},${lng});
-out body;`;
+  // nwr = node + way + relation; "out center" gives centroid coords for ways/relations
+  const query = `[out:json][timeout:15];nwr["amenity"="${cat.amenity}"](around:${radius},${lat},${lng});out center;`;
 
   try {
     const res = await fetch(OVERPASS_URL, {
@@ -39,10 +38,10 @@ out body;`;
 
     const data = await res.json();
     return data.elements
-      .filter((el) => el.lat && el.lon)
+      .filter((el) => (el.lat && el.lon) || el.center)
       .map((el) => ({
-        lat: el.lat,
-        lng: el.lon,
+        lat: el.lat ?? el.center.lat,
+        lng: el.lon ?? el.center.lon,
         name: el.tags?.name || cat.label,
         shortName: el.tags?.name || cat.label,
         category,
