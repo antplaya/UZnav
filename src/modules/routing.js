@@ -30,7 +30,6 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
       overview: 'full',
       steps: 'true',
       geometries: 'geojson',
-      alternatives: 'true',
       ...(excludeParts.length ? { exclude: excludeParts.join(',') } : {}),
     },
   });
