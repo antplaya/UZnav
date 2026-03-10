@@ -20,12 +20,17 @@ export const POI_CATEGORIES = {
  * @param {number} radius - search radius in meters
  * @returns {Promise<Array>}
  */
-export async function searchPOI(category, lat, lng, radius = 3000) {
+// Charging stations are sparse — use a larger search radius
+const CATEGORY_RADIUS = { charging: 15000 };
+
+export async function searchPOI(category, lat, lng, radius = 5000) {
   const cat = POI_CATEGORIES[category];
   if (!cat) return [];
 
+  const searchRadius = CATEGORY_RADIUS[category] ?? radius;
+
   // nwr = node + way + relation; "out center" gives centroid coords for ways/relations
-  const query = `[out:json][timeout:15];nwr["amenity"="${cat.amenity}"](around:${radius},${lat},${lng});out center;`;
+  const query = `[out:json][timeout:20];nwr["amenity"="${cat.amenity}"](around:${searchRadius},${lat},${lng});out center;`;
 
   try {
     const res = await fetch(OVERPASS_URL, {
@@ -37,8 +42,8 @@ export async function searchPOI(category, lat, lng, radius = 3000) {
     if (!res.ok) throw new Error(`Overpass error: ${res.status}`);
 
     const data = await res.json();
-    return data.elements
-      .filter((el) => (el.lat && el.lon) || el.center)
+    const results = data.elements
+      .filter((el) => el.lat != null || el.center?.lat != null)
       .map((el) => ({
         lat: el.lat ?? el.center.lat,
         lng: el.lon ?? el.center.lon,
@@ -47,6 +52,8 @@ export async function searchPOI(category, lat, lng, radius = 3000) {
         category,
         icon: cat.icon,
       }));
+    console.log(`[POI] ${category} → ${results.length} results within ${searchRadius}m`);
+    return results;
   } catch (err) {
     console.warn(`POI search failed for ${category}:`, err);
     return [];
