@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>UZnav</title>
+  <title>UZnav for Tesla</title>
 </head>
 <body>
   <div id="app">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <h1 class="app-title">UZnav</h1>
+        <div class="app-title-group">
+          <h1 class="app-title">UZnav</h1>
+          <span class="app-subtitle">for Tesla</span>
+        </div>
         <div class="gps-indicator">
           <span id="gps-status" class="gps-status">GPS...</span>
           <button id="lang-toggle" class="lang-toggle" aria-label="Toggle language">RU</button>
@@ -71,7 +74,7 @@
       </div>
 
       <!-- Route Options -->
-      <div class="layers-section">
+      <div class="layers-section layers-section--column">
         <h2 class="section-title" data-i18n="routeOptions">Route options</h2>
         <label class="toggle-label">
           <input type="checkbox" id="avoid-highways-toggle" />
