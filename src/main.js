@@ -402,6 +402,20 @@ async function handleWaypointAdd({ lng, lat }) {
   } catch {
     waypointNames.set(key, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   }
+
+  // If this is the only waypoint and GPS is available, auto-set GPS as origin
+  const gps = getGpsPosition();
+  if (gps && getWaypointCoords().length === 1) {
+    const originKey = coordKey(gps.lng, gps.lat);
+    waypointNames.set(originKey, 'My location');
+    reverseGeocode(gps.lat, gps.lng).then((name) => {
+      waypointNames.set(originKey, name);
+      refreshWaypointList();
+    }).catch(() => {});
+    setWaypoints([[gps.lng, gps.lat], [lng, lat]]);
+    return;
+  }
+
   refreshWaypointList();
 }
 
