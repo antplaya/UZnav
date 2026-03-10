@@ -8,6 +8,7 @@ export const POI_CATEGORIES = {
   hospital:   { label: 'Hospital',    icon: '🏥', amenity: 'hospital' },
   atm:        { label: 'ATM',         icon: '🏧', amenity: 'atm' },
   parking:    { label: 'Parking',     icon: '🅿️', amenity: 'parking' },
+  charging:   { label: 'Charging',    icon: '⚡', amenity: 'charging_station' },
 };
 
 /**
