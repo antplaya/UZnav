@@ -11,12 +11,17 @@ let directions = null;
  * @param {Function} callbacks.onWaypointAdd - called with {lng, lat} when waypoint added via map click
  * @param {Function} callbacks.onWaypointChange - called when waypoints change (any reason)
  */
-export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChange }) {
+export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChange }, options = {}) {
   // Clean up previous instance if re-initializing (e.g. after theme change)
   if (directions) {
     try { directions.destroy(); } catch { /* may not exist */ }
     directions = null;
   }
+
+  const excludeParts = [];
+  if (options.avoidHighways) excludeParts.push('motorway');
+  if (options.avoidTolls)    excludeParts.push('toll');
+  if (options.avoidFerries)  excludeParts.push('ferry');
 
   directions = new MapLibreGlDirections(map, {
     api: 'https://router.project-osrm.org/route/v1',
@@ -25,6 +30,7 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
       overview: 'full',
       steps: 'true',
       geometries: 'geojson',
+      ...(excludeParts.length ? { exclude: excludeParts.join(',') } : {}),
     },
   });
 

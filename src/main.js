@@ -8,7 +8,7 @@ import {
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
   setMapRegion, setupLongPress,
 } from './modules/map.js';
-import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive } from './modules/routing.js';
+import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive, getWaypointCoords } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
@@ -82,7 +82,7 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
       onRoutesFound: handleRouteFound,
       onWaypointAdd: handleWaypointAdd,
       onWaypointChange: handleWaypointChange,
-    });
+    }, getRoutingOptions());
     // Re-add radar markers after theme change if enabled
     if (document.getElementById('radars-toggle').checked && cameras.length > 0) {
       addRadarMarkers(cameras);
@@ -115,6 +115,44 @@ radarsToggle.addEventListener('change', () => {
   } else {
     removeRadarMarkers();
   }
+});
+
+// Routing options (avoid highways / tolls / ferries)
+function getRoutingOptions() {
+  return {
+    avoidHighways: document.getElementById('avoid-highways-toggle').checked,
+    avoidTolls:    document.getElementById('avoid-tolls-toggle').checked,
+    avoidFerries:  document.getElementById('avoid-ferries-toggle').checked,
+  };
+}
+
+function reinitRouting() {
+  const coords = getWaypointCoords();
+  initRouting(getMap(), {
+    onRoutesFound: handleRouteFound,
+    onWaypointAdd: handleWaypointAdd,
+    onWaypointChange: handleWaypointChange,
+  }, getRoutingOptions());
+  if (coords.length >= 2) setWaypoints(coords);
+}
+
+const avoidHighwaysToggle = document.getElementById('avoid-highways-toggle');
+const avoidTollsToggle    = document.getElementById('avoid-tolls-toggle');
+const avoidFerriesToggle  = document.getElementById('avoid-ferries-toggle');
+
+avoidHighwaysToggle.checked = localStorage.getItem('uznav-avoid-highways') === 'true';
+avoidTollsToggle.checked    = localStorage.getItem('uznav-avoid-tolls')    === 'true';
+avoidFerriesToggle.checked  = localStorage.getItem('uznav-avoid-ferries')  === 'true';
+
+[
+  [avoidHighwaysToggle, 'uznav-avoid-highways'],
+  [avoidTollsToggle,    'uznav-avoid-tolls'],
+  [avoidFerriesToggle,  'uznav-avoid-ferries'],
+].forEach(([el, key]) => {
+  el.addEventListener('change', () => {
+    localStorage.setItem(key, el.checked);
+    reinitRouting();
+  });
 });
 
 // Clear route button
@@ -239,7 +277,7 @@ initMap().then((map) => {
     onRoutesFound: handleRouteFound,
     onWaypointAdd: handleWaypointAdd,
     onWaypointChange: handleWaypointChange,
-  });
+  }, getRoutingOptions());
 
   // Long-press to add waypoints — show place card first (Waze pattern)
   setupLongPress(async ({ lng, lat }) => {
