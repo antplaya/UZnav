@@ -286,10 +286,9 @@ initMap().then((map) => {
     onWaypointChange: handleWaypointChange,
   }, getRoutingOptions());
 
-  // Long-press to add waypoints — show place card first (Waze pattern)
-  setupLongPress(async ({ lng, lat }) => {
+  // Long-press to add waypoints — show place card immediately, geocode in background
+  setupLongPress(({ lng, lat }) => {
     let name = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    try { name = await reverseGeocode(lat, lng); } catch {}
     showPlaceCard({
       name,
       icon: '📍',
@@ -303,6 +302,11 @@ initMap().then((map) => {
         }
       },
     });
+    // Update name once reverse geocode finishes (non-blocking)
+    reverseGeocode(lat, lng).then((resolved) => {
+      name = resolved;
+      document.getElementById('place-card-name').textContent = resolved;
+    }).catch(() => {});
   });
 
   // POI category chips
