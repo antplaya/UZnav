@@ -11,7 +11,7 @@ let directions = null;
  * @param {Function} callbacks.onWaypointAdd - called with {lng, lat} when waypoint added via map click
  * @param {Function} callbacks.onWaypointChange - called when waypoints change (any reason)
  */
-export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChange }, options = {}) {
+export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChange, onRoutesStart }, options = {}) {
   // Clean up previous instance if re-initializing (e.g. after theme change)
   if (directions) {
     try { directions.destroy(); } catch { /* may not exist */ }
@@ -35,6 +35,10 @@ export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChang
   });
 
   directions.interactive = false; // long-press handler adds waypoints instead of single-tap
+
+  directions.on('fetchroutesstart', () => {
+    if (onRoutesStart) onRoutesStart();
+  });
 
   // Listen for route results
   directions.on('fetchroutesend', (e) => {

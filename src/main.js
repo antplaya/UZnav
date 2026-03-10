@@ -84,6 +84,7 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   setMapTheme(currentTheme, () => {
     initRouting(getMap(), {
       onRoutesFound: handleRouteFound,
+      onRoutesStart: showCalculating,
       onWaypointAdd: handleWaypointAdd,
       onWaypointChange: handleWaypointChange,
     }, getRoutingOptions());
@@ -122,6 +123,13 @@ radarsToggle.addEventListener('change', () => {
 });
 
 // Routing options (avoid highways / tolls / ferries)
+function showCalculating() {
+  document.getElementById('route-calculating').classList.remove('hidden');
+}
+function hideCalculating() {
+  document.getElementById('route-calculating').classList.add('hidden');
+}
+
 function getRoutingOptions() {
   return {
     avoidHighways: document.getElementById('avoid-highways-toggle').checked,
@@ -168,6 +176,7 @@ document.getElementById('clear-route-btn').addEventListener('click', () => {
   lastRoute = null;
   allRoutes = [];
   selectedRouteIndex = 0;
+  hideCalculating();
   clearRouteAlternatives();
   renderWaypoints([], () => {});
   hideRouteSummary();
@@ -456,8 +465,8 @@ async function handleSearch(query) {
 }
 
 function handleRouteFound(routes) {
+  hideCalculating();
   if (!routes) {
-    console.warn('[main] handleRouteFound: no routes returned from OSRM');
     showToast(t('searchFailed'), 'error');
     return;
   }
