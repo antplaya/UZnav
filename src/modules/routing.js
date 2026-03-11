@@ -1,119 +1,77 @@
-import MapLibreGlDirections from '@maplibre/maplibre-gl-directions';
-import '@maplibre/maplibre-gl-directions/dist/style.css';
+/**
+ * Routing module — manages waypoints and fetches routes via ORS.
+ * No map dependency — route rendering is handled by map.js.
+ */
+import { fetchOrsRoute, ORS_API_KEY } from './ors-proxy.js';
 
-let directions = null;
+let waypoints = []; // Array of [lng, lat]
+let callbacks = {};
+let currentOptions = {};
+let abortController = null;
 
 /**
- * Initialize MapLibre GL Directions plugin.
- * @param {maplibregl.Map} map
- * @param {object} callbacks
- * @param {Function} callbacks.onRoutesFound - called with route data
- * @param {Function} callbacks.onWaypointAdd - called with {lng, lat} when waypoint added via map click
- * @param {Function} callbacks.onWaypointChange - called when waypoints change (any reason)
+ * Initialize routing with callbacks.
+ * @param {object} cbs
+ * @param {Function} cbs.onRoutesFound - called with routes array or null
+ * @param {Function} cbs.onRoutesStart - called when fetch starts
+ * @param {Function} cbs.onWaypointAdd - called with {lng, lat} when waypoint added
+ * @param {Function} cbs.onWaypointChange - called with waypoints array when changed
+ * @param {object} options - { avoidHighways, avoidTolls, avoidFerries }
  */
-export function initRouting(map, { onRoutesFound, onWaypointAdd, onWaypointChange, onRoutesStart }, options = {}) {
-  // Clean up previous instance if re-initializing (e.g. after theme change)
-  if (directions) {
-    try { directions.destroy(); } catch { /* may not exist */ }
-    directions = null;
-  }
-
-  const excludeParts = [];
-  if (options.avoidHighways) excludeParts.push('motorway');
-  if (options.avoidTolls)    excludeParts.push('toll');
-  if (options.avoidFerries)  excludeParts.push('ferry');
-
-  directions = new MapLibreGlDirections(map, {
-    api: 'https://router.project-osrm.org/route/v1',
-    profile: 'driving',
-    requestOptions: {
-      overview: 'full',
-      steps: 'true',
-      geometries: 'geojson',
-      ...(excludeParts.length ? { exclude: excludeParts.join(',') } : {}),
-    },
-  });
-
-  directions.interactive = false; // long-press handler adds waypoints instead of single-tap
-
-  directions.on('fetchroutesstart', () => {
-    if (onRoutesStart) onRoutesStart();
-  });
-
-  // Listen for route results
-  directions.on('fetchroutesend', (e) => {
-    if (e.data?.routes?.length > 0) {
-      onRoutesFound(
-        e.data.routes.map((r) => ({
-          distance: r.distance,
-          duration: r.duration,
-          steps: r.legs ? r.legs.flatMap((leg) => leg.steps || []) : [],
-          geometry: r.geometry,
-        }))
-      );
-    } else if (e.data) {
-      // OSRM responded but returned no routes (e.g. NoRoute error)
-      onRoutesFound(null);
-    }
-    // e.data=undefined means request was aborted (e.g. clearRoute) — ignore
-  });
-
-  // Listen for waypoint added (from map click)
-  // v0.7 API: e.data has {index}, get coords from waypointsCoordinates
-  directions.on('addwaypoint', (e) => {
-    if (e.data && e.data.index !== undefined) {
-      const coords = directions.waypointsCoordinates[e.data.index];
-      if (coords) {
-        onWaypointAdd({ lng: coords[0], lat: coords[1] });
-      }
-    }
-    notifyChange();
-  });
-
-  const notifyChange = () => {
-    const coords = directions.waypointsCoordinates;
-    onWaypointChange(coords);
-  };
-
-  directions.on('removewaypoint', notifyChange);
-  directions.on('movewaypoint', notifyChange);
-  directions.on('setwaypoints', notifyChange);
+export function initRouting(cbs, options = {}) {
+  callbacks = cbs;
+  currentOptions = options;
 }
 
 /**
- * Set waypoints programmatically (from search or GPS).
+ * Update routing options (avoid toggles) and re-fetch if route exists.
+ */
+export function updateRoutingOptions(options) {
+  currentOptions = options;
+  if (waypoints.length >= 2) fetchRoute();
+}
+
+/**
+ * Set waypoints programmatically and fetch route.
  * @param {Array<[number, number]>} coords - array of [lng, lat]
  */
 export function setWaypoints(coords) {
-  if (!directions) return;
-  directions.setWaypoints(coords);
+  waypoints = coords.map((c) => [...c]);
+  notifyChange();
+  if (waypoints.length >= 2) fetchRoute();
 }
 
 /**
  * Add a single waypoint at the end.
- * @param {number} lng
- * @param {number} lat
  */
 export function addWaypoint(lng, lat) {
-  if (!directions) return;
-  directions.addWaypoint([lng, lat]);
+  waypoints.push([lng, lat]);
+  if (callbacks.onWaypointAdd) callbacks.onWaypointAdd({ lng, lat });
+  notifyChange();
+  if (waypoints.length >= 2) fetchRoute();
 }
 
 /**
  * Remove a waypoint by index.
- * @param {number} index
  */
 export function removeWaypointByIndex(index) {
-  if (!directions) return;
-  directions.removeWaypoint(index);
+  if (index < 0 || index >= waypoints.length) return;
+  waypoints.splice(index, 1);
+  notifyChange();
+  if (waypoints.length >= 2) fetchRoute();
 }
 
 /**
  * Clear all waypoints and route.
  */
 export function clearRoute() {
-  if (!directions) return;
-  directions.clear();
+  // Abort any in-flight request
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  waypoints = [];
+  notifyChange();
 }
 
 /**
@@ -121,14 +79,44 @@ export function clearRoute() {
  * @returns {Array<[number, number]>}
  */
 export function getWaypointCoords() {
-  if (!directions) return [];
-  return directions.waypointsCoordinates;
+  return waypoints.map((c) => [...c]);
 }
 
-export function setInteractive(enabled) {
-  if (directions) directions.interactive = enabled;
+function notifyChange() {
+  if (callbacks.onWaypointChange) callbacks.onWaypointChange(getWaypointCoords());
 }
 
-export function getDirections() {
-  return directions;
+async function fetchRoute() {
+  if (waypoints.length < 2) return;
+  if (!ORS_API_KEY) {
+    console.warn('[routing] No ORS API key — cannot fetch route');
+    return;
+  }
+
+  // Abort previous request
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+
+  if (callbacks.onRoutesStart) callbacks.onRoutesStart();
+
+  try {
+    const result = await fetchOrsRoute(waypoints, currentOptions);
+    if (!result || !result.routes?.length) {
+      if (callbacks.onRoutesFound) callbacks.onRoutesFound(null);
+      return;
+    }
+
+    const routes = result.routes.map((r) => ({
+      distance: r.distance,
+      duration: r.duration,
+      steps: r.steps || [],
+      geometry: r.geometry,
+    }));
+
+    if (callbacks.onRoutesFound) callbacks.onRoutesFound(routes);
+  } catch (err) {
+    if (err.name === 'AbortError') return; // Silently ignore aborts
+    console.error('[routing] fetch failed:', err);
+    if (callbacks.onRoutesFound) callbacks.onRoutesFound(null);
+  }
 }

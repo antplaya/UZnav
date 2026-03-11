@@ -7,15 +7,15 @@ import {
   addPoiMarkers, removePoiMarkers,
   updateGpsPosition, setFollowMode, getFollowMode, onFollowChange, centerOnGps,
   setMapRegion, setupLongPress,
+  drawRoute, clearRouteLines,
 } from './modules/map.js';
-import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, setInteractive, getWaypointCoords, getDirections } from './modules/routing.js';
+import { initRouting, addWaypoint, setWaypoints, removeWaypointByIndex, clearRoute, getWaypointCoords, updateRoutingOptions } from './modules/routing.js';
 import { searchLocation, reverseGeocode, setSearchRegion } from './modules/search.js';
 import { detectRegion } from './modules/cities.js';
 import { getCurrentPosition, watchPosition } from './modules/geolocation.js';
 import { fetchSpeedCameras, checkCameraProximity } from './modules/radars.js';
 import { searchPOI } from './modules/poi.js';
 import { snapToRoad } from './modules/snap.js';
-import { installOrsProxy } from './modules/ors-proxy.js';
 import { startNavigation, updatePosition as navUpdatePosition, stopNavigation, isActive as isNavActive, isOffRoute } from './modules/navigation.js';
 import {
   initUI,
@@ -83,12 +83,6 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   localStorage.setItem('uznav-theme', currentTheme);
 
   setMapTheme(currentTheme, () => {
-    initRouting(getMap(), {
-      onRoutesFound: handleRouteFound,
-      onRoutesStart: showCalculating,
-      onWaypointAdd: handleWaypointAdd,
-      onWaypointChange: handleWaypointChange,
-    }, getRoutingOptions());
     // Re-add radar markers after theme change if enabled
     if (document.getElementById('radars-toggle').checked && cameras.length > 0) {
       addRadarMarkers(cameras);
@@ -139,16 +133,6 @@ function getRoutingOptions() {
   };
 }
 
-function reinitRouting() {
-  const coords = getWaypointCoords();
-  initRouting(getMap(), {
-    onRoutesFound: handleRouteFound,
-    onWaypointAdd: handleWaypointAdd,
-    onWaypointChange: handleWaypointChange,
-  }, getRoutingOptions());
-  if (coords.length >= 2) setWaypoints(coords);
-}
-
 const avoidHighwaysToggle = document.getElementById('avoid-highways-toggle');
 const avoidTollsToggle    = document.getElementById('avoid-tolls-toggle');
 const avoidFerriesToggle  = document.getElementById('avoid-ferries-toggle');
@@ -164,7 +148,7 @@ avoidFerriesToggle.checked  = localStorage.getItem('uznav-avoid-ferries')  === '
 ].forEach(([el, key]) => {
   el.addEventListener('change', () => {
     localStorage.setItem(key, el.checked);
-    reinitRouting();
+    updateRoutingOptions(getRoutingOptions());
   });
 });
 
@@ -172,6 +156,7 @@ avoidFerriesToggle.checked  = localStorage.getItem('uznav-avoid-ferries')  === '
 document.getElementById('clear-route-btn').addEventListener('click', () => {
   if (isNavActive()) exitNavigation();
   clearRoute();
+  clearRouteLines();
   waypointNames.clear();
   currentWaypoints = [];
   lastRoute = null;
@@ -232,7 +217,6 @@ document.getElementById('start-nav-btn').addEventListener('click', () => {
   sidebar.classList.add('collapsed');
   sidebarToggle.classList.add('collapsed');
 
-  setInteractive(false);
   setFollowMode('follow-heading');
   setLocateButtonState('follow-heading');
   showNavHud();
@@ -242,12 +226,10 @@ document.getElementById('start-nav-btn').addEventListener('click', () => {
   if (gps) syncNavHud(gps.lat, gps.lng);
 });
 
-// Edit route button (toggle map tap to add waypoints during nav)
+// Edit route button (not needed without interactive mode — hide or keep as placeholder)
 const navEditBtn = document.getElementById('nav-edit-btn');
 navEditBtn.addEventListener('click', () => {
-  const isEditing = navEditBtn.classList.toggle('active');
-  setInteractive(isEditing);
-  showToast(isEditing ? t('addStopsMode') : t('editModeOff'), 'info');
+  showToast(t('addStopsMode'), 'info');
 });
 
 // Exit navigation button
@@ -260,7 +242,6 @@ function exitNavigation() {
   clearTimeout(rerouteTimer);
   rerouteTimer = null;
   hideNavHud();
-  setInteractive(true);
   navEditBtn.classList.remove('active');
   setFollowMode('off');
   setLocateButtonState('off');
@@ -287,14 +268,12 @@ function findNearbySpeedLimit(lat, lng) {
   return isNaN(limit) ? null : limit;
 }
 
-// Install ORS proxy (no-op if API key not set)
-installOrsProxy();
-
 // Init map, then routing, GPS, and layers
 initMap().then((map) => {
-  // Init routing
-  initRouting(map, {
+  // Init routing (no map dependency)
+  initRouting({
     onRoutesFound: handleRouteFound,
+    onRoutesStart: showCalculating,
     onWaypointAdd: handleWaypointAdd,
     onWaypointChange: handleWaypointChange,
   }, getRoutingOptions());
@@ -342,7 +321,14 @@ initMap().then((map) => {
       btn.classList.add('active');
 
       const gps = getGpsPosition();
-      const center = gps || { lat: map.getCenter().lat, lng: map.getCenter().lng };
+      let center;
+      if (gps) {
+        center = { lat: gps.lat, lng: gps.lng };
+      } else {
+        // Yandex map center is [lng, lat]
+        const c = map.center;
+        center = { lat: c[1], lng: c[0] };
+      }
 
       showToast(t('searchingNearby'), 'info');
       const pois = await searchPOI(category, center.lat, center.lng, 3000);
@@ -427,6 +413,7 @@ function routeToDestination(result) {
   if (gps) {
     // Clear any existing route and build fresh GPS → destination
     clearRoute();
+    clearRouteLines();
     waypointNames.clear();
     currentWaypoints = [];
     lastRoute = null;
@@ -492,6 +479,9 @@ function handleRouteFound(routes) {
   selectedRouteIndex = 0;
   lastRoute = routes[0];
 
+  // Draw route on map
+  if (lastRoute.geometry) drawRoute(lastRoute.geometry);
+
   showRouteSummary(lastRoute.distance, lastRoute.duration);
   showRouteAlternatives(routes, 0, handleRouteSelect);
   if (lastRoute.steps?.length > 0) renderDirections(lastRoute.steps);
@@ -513,11 +503,8 @@ function handleRouteSelect(index) {
   selectedRouteIndex = index;
   lastRoute = allRoutes[index];
 
-  // Tell the directions plugin which alternative to highlight on the map
-  const dir = getDirections();
-  if (dir && typeof dir.selectedRouteIndex !== 'undefined') {
-    dir.selectedRouteIndex = index;
-  }
+  // Draw selected route on map
+  if (lastRoute.geometry) drawRoute(lastRoute.geometry);
 
   showRouteSummary(lastRoute.distance, lastRoute.duration);
   showRouteAlternatives(allRoutes, index, handleRouteSelect);
@@ -529,6 +516,7 @@ function handleWaypointChange(coords) {
   refreshWaypointList();
 
   if (coords.length < 2) {
+    clearRouteLines();
     hideRouteSummary();
     hideDirections();
   }
@@ -554,7 +542,6 @@ function refreshWaypointList() {
 
 /**
  * Populate the navigation HUD from current GPS position.
- * Called on nav start AND on every GPS update while navigating.
  */
 function syncNavHud(lat, lng) {
   const navState = navUpdatePosition(lat, lng);
@@ -585,13 +572,13 @@ function syncNavHud(lat, lng) {
 }
 
 function localizeModifier(mod) {
-  const map = {
+  const modMap = {
     'left': t('modLeft'), 'right': t('modRight'),
     'slight left': t('modSlightLeft'), 'slight right': t('modSlightRight'),
     'sharp left': t('modSharpLeft'), 'sharp right': t('modSharpRight'),
     'straight': t('modStraight'), 'uturn': t('modUturn'), 'u-turn': t('modUturn'),
   };
-  return map[mod?.toLowerCase()] ?? mod ?? '';
+  return modMap[mod?.toLowerCase()] ?? mod ?? '';
 }
 
 function formatManeuverShort(maneuver) {
@@ -635,7 +622,6 @@ async function initGps() {
       if (newPos) {
         // Snap GPS to nearest road, fall back to raw position
         const snapped = await snapToRoad(newPos.lng, newPos.lat, newPos.speed ?? 0);
-        // Update map marker + follow mode camera (snapped position if available)
         updateGpsPosition(newPos.lat, newPos.lng, newPos.heading, newPos.speed, snapped?.lat, snapped?.lng);
 
         // Update speed display (convert m/s → km/h)
@@ -648,7 +634,7 @@ async function initGps() {
         if (isNavActive()) {
           syncNavHud(newPos.lat, newPos.lng);
 
-          // Auto-reroute if off route — longer delay reduces false triggers at high speed
+          // Auto-reroute if off route
           if (isOffRoute(newPos.lat, newPos.lng)) {
             if (!rerouteTimer) {
               rerouteTimer = setTimeout(() => {
@@ -673,7 +659,7 @@ async function initGps() {
         // Speed camera proximity alert
         if (cameras.length > 0 && radarsToggle.checked) {
           const now = Date.now();
-          if (now - lastCameraAlertTime > 30000) { // max 1 alert per 30s
+          if (now - lastCameraAlertTime > 30000) {
             const nearby = checkCameraProximity(newPos.lat, newPos.lng, cameras);
             if (nearby) {
               lastCameraAlertTime = now;
